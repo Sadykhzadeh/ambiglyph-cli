@@ -1,3 +1,6 @@
+# Executable by PKG-package (modified by Azer Sadykhzadeh 11/11/20)
+pkg_out/
+
 # Logs
 logs
 *.log
