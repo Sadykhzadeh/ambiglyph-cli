@@ -19,9 +19,12 @@
   },
   "homepage": "https://github.com/Sadykhzadeh/ambiglyph-cli#readme",
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.3.1",
+    "@typescript-eslint/parser": "^5.3.1",
     "chalk": "^4.1.2",
     "commander": "^8.3.0",
     "dotenv": "^10.0.0",
+    "eslint": "^8.2.0",
     "got": "^11.8.2",
     "pkg": "^5.4.1",
     "typescript": "^4.4.4"
