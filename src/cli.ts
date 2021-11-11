@@ -2,7 +2,7 @@ import { program } from 'commander';
 // import chalk from 'chalk';
 // import got from 'got';
 
-program.version(process.env.VERSION_NUMBER || "¯\\_(ツ)_/¯");
+program.version(process.env.version || "¯\\_(ツ)_/¯");
 
 let testFunc = (arg: string) => {
   return console.table(arg);
