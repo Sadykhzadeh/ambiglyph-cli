@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "compile-linux": "pkg -t node16-linux-x64 --compress GZip ./dist/index.js -o ./pkg_out/ambiglyph"
+    "compile-linux": "pkg -t node16-linux-x64 --compress GZip ./dist/index.js -o ./pkg_out/ambiglyph",
+    "compile-macos-arm64": "pkg -t macos-arm64 --compress GZip ./dist/index.js -o ./pkg_out/ambiglyph"
   },
   "repository": {
     "type": "git",
