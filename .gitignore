@@ -1,5 +1,9 @@
 # Executable by PKG-package (modified by Azer Sadykhzadeh 11/11/20)
 pkg_out/
+# WebStorm folder (modified by Azer Sadykhzadeh)
+.idea/
+# macOS/Windows config file (modified by Azer Sadykhzadeh)
+.DS_Store
 
 # Logs
 logs
