@@ -1,5 +1,5 @@
 import { basename as bpath } from 'path';
-import { list as textEx } from './textEx';
+import { list as textEx } from './exList';
 
 export const isText = (
   filename: string
