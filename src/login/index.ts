@@ -23,7 +23,7 @@ async function authenticationToServer(username: string, password: string): Promi
   } catch (e) {
     if (got.HTTPError) {
       console.log("🥲 I guess you typed wrong username/password. Try again.");
-    } else console.error("😔 Oops, we found some issues from our side. Please, check your Internet connection or try again later.");
+    } else console.error(process.env.errorText);
   }
 }
 
@@ -45,5 +45,5 @@ export async function tryToLogIn(): Promise<void> {
       }
     });
     authenticationToServer(usernameResponce.vl, passwordResponce.vl);
-  } catch (err) { console.error("😔 Oops, we found some issues from our side. Please, check your Internet connection or try again later."); }
+  } catch (err) { console.error(process.env.errorText); }
 }
