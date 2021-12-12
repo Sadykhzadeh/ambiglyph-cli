@@ -13,12 +13,12 @@ async function authenticationToServer(username: string, password: string): Promi
     console.log("⏳Loading...");
     const authRequest: AuthAnswer = await got.post(`${process.env.url}/authenticate`, {
       json: {
-        "username": username,
+        "login": username,
         "password": password
       },
       responseType: 'json',
     }), authResponce = authRequest.body;
-    writeFileSync('./.ambi', authResponce.token);
+    writeFileSync('./.ambi', authResponce.token.split("").reverse().join(""));
     console.log(`✅ Done! Welcome, ${username}!\n(Don't forget to logout after you done. Command: ambiglyph logout)`);
   } catch (e) {
     if (got.HTTPError) {
