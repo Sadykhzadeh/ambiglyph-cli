@@ -33,7 +33,7 @@ export async function sendFile(path: string, serverWordPerRequest: number): Prom
           }
         }
       } catch (e) {
-        console.error("😔 Oops, we found some issues from our side. Please, check your Internet connection or try again later.");
+        console.error(process.env.errorText);
       }
     }
 
