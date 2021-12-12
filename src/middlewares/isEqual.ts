@@ -1,0 +1,1 @@
+export const isNotEqual = (a: Array<string>, b: Array<string>): boolean => JSON.stringify(a) !== JSON.stringify(b);

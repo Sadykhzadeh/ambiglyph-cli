@@ -18,7 +18,7 @@ async function authenticationToServer(username: string, password: string): Promi
       },
       responseType: 'json',
     }), authResponce = authRequest.body;
-    writeFileSync('./.ambi', authResponce.token.split("").reverse().join(""));
+    writeFileSync('./.ambi', authResponce.token);
     console.log(`✅ Done! Welcome, ${username}!\n(Don't forget to logout after you done. Command: ambiglyph logout)`);
   } catch (e) {
     if (got.HTTPError) {
