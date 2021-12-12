@@ -1,6 +1,31 @@
-// in future, there'll be a code of login command
-import md5 from 'md5';
 import prompts from 'prompts';
+import got from 'got';
+import { writeFileSync } from 'fs';
+
+interface AuthAnswer {
+  body: {
+    token: string;
+  }
+}
+
+async function authenticationToServer(username: string, password: string): Promise<void> {
+  try {
+    console.log("⏳Loaing...");
+    const authRequest: AuthAnswer = await got.post(`${process.env.url}/authenticate`, {
+      json: {
+        "username": username,
+        "password": password
+      },
+      responseType: 'json',
+    }), authResponce = authRequest.body;
+    writeFileSync('./.ambi', authResponce.token);
+    console.log(`✅ Successfully! Hello, ${username}!\n(Don't forget to logout after you done. Command: ambiglyph logout)`);
+  } catch (e) {
+    if (got.HTTPError) {
+      console.log("🥲 I guess you typed wrong username/password. Try again.");
+    } else console.error("😔 Oops, we found some issues from our side. Please, check your Internet connection or try again later.");
+  }
+}
 
 export async function tryToLogIn(): Promise<void> {
   try {
@@ -12,9 +37,14 @@ export async function tryToLogIn(): Promise<void> {
       type: 'password',
       name: 'vl',
       message: 'Enter your password: ',
-      validate: vl => vl === usernameResponce.vl ? `Please, do not use your username as a password` : true
+      validate: (vl) => {
+        //if (vl === usernameResponce.vl) return `Please, do not use your username as a password 😄`;
+        //if (vl.length < 8) return 'Too short password. Length should be at least 8 symbols 👀';
+        if (vl.length >= 100) return 'Strong password are great, but not more than 100 symbols, please 🙃';
+        return true;
+      }
     });
-    console.table([md5(usernameResponce.vl), md5(passwordResponce.vl)]);
+    authenticationToServer(usernameResponce.vl, passwordResponce.vl);
   } catch (err) {
     console.error('Oops...', err);
   }
