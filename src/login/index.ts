@@ -38,8 +38,8 @@ export async function tryToLogIn(): Promise<void> {
       name: 'vl',
       message: 'Enter your password: ',
       validate: (vl) => {
-        //if (vl === usernameResponce.vl) return `Please, do not use your username as a password 😄`;
-        //if (vl.length < 8) return 'Too short password. Length should be at least 8 symbols 👀';
+        if (vl === usernameResponce.vl) return `Please, do not use your username as a password 😄`;
+        if (vl.length < 8) return 'Too short password. Length should be at least 8 symbols 👀';
         if (vl.length >= 100) return 'Strong password are great, but not more than 100 symbols, please 🙃';
         return true;
       }
