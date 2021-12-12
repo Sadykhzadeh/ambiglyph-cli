@@ -10,7 +10,7 @@ interface AuthAnswer {
 
 async function authenticationToServer(username: string, password: string): Promise<void> {
   try {
-    console.log("⏳Loaing...");
+    console.log("⏳Loading...");
     const authRequest: AuthAnswer = await got.post(`${process.env.url}/authenticate`, {
       json: {
         "username": username,
@@ -19,7 +19,7 @@ async function authenticationToServer(username: string, password: string): Promi
       responseType: 'json',
     }), authResponce = authRequest.body;
     writeFileSync('./.ambi', authResponce.token);
-    console.log(`✅ Successfully! Hello, ${username}!\n(Don't forget to logout after you done. Command: ambiglyph logout)`);
+    console.log(`✅ Done! Welcome, ${username}!\n(Don't forget to logout after you done. Command: ambiglyph logout)`);
   } catch (e) {
     if (got.HTTPError) {
       console.log("🥲 I guess you typed wrong username/password. Try again.");
@@ -45,7 +45,5 @@ export async function tryToLogIn(): Promise<void> {
       }
     });
     authenticationToServer(usernameResponce.vl, passwordResponce.vl);
-  } catch (err) {
-    console.error('Oops...', err);
-  }
+  } catch (err) { console.error("😔 Oops, we found some issues from our side. Please, check your Internet connection or try again later."); }
 }
