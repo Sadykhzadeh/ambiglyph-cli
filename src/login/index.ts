@@ -1,6 +1,6 @@
 import prompts from 'prompts';
-import got from 'got';
-import { writeFileSync } from 'fs';
+import got, { HTTPError } from 'got';
+import { chmodSync, writeFileSync } from 'fs';
 
 interface AuthAnswer {
   body: {
@@ -18,10 +18,15 @@ async function authenticationToServer(username: string, password: string): Promi
       },
       responseType: 'json',
     }), authResponce = authRequest.body;
-    writeFileSync('./.ambi', authResponce.token);
+    // The token is a credential, so it must not be world-readable the way
+    // the default 0644 left it.
+    writeFileSync('./.ambi', authResponce.token, { mode: 0o600 });
+    chmodSync('./.ambi', 0o600);
     console.log(`✅ Done! Welcome, ${username}!\n(Don't forget to logout after you done. Command: ambiglyph logout)`);
   } catch (e) {
-    if (got.HTTPError) {
+    // `if (got.HTTPError)` tested a class for truthiness, so it was always
+    // taken - a timeout or a DNS failure was reported as a bad password.
+    if (e instanceof HTTPError) {
       console.log("🥲 I guess you typed wrong username/password. Try again.");
     } else console.error(process.env.errorText);
   }
@@ -44,6 +49,6 @@ export async function tryToLogIn(): Promise<void> {
         return true;
       }
     });
-    authenticationToServer(usernameResponce.vl, passwordResponce.vl);
-  } catch (err) { console.error(process.env.errorText); }
+    await authenticationToServer(usernameResponce.vl, passwordResponce.vl);
+  } catch { console.error(process.env.errorText); }
 }

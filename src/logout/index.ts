@@ -11,7 +11,7 @@ export async function tryToLogOut(): Promise<void> {
       active: 'Yes',
       inactive: 'No'
     })).userAns) unlinkSync('./.ambi');
-  } catch (error) {
+  } catch {
     return;
   }
 }

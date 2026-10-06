@@ -1,6 +1,6 @@
 import prompts from 'prompts';
-import { isText } from './isText';
-import { fileExists } from './fileExists';
+import { isText } from './isText.js';
+import { fileExists } from './fileExists.js';
 
 export async function checkFile(path: string): Promise<boolean> {
   if (fileExists(path))

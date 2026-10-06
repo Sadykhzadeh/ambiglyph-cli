@@ -2,37 +2,50 @@
   "name": "ambiglyph-cli",
   "version": "1.0.0",
   "description": "The CLI wrapper of Ambiglyph (Homoglyph Detection Tool)",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "compile-linux": "pkg -t node16-linux-x64 --compress GZip -c ./package.json ./dist/index.js -o ./pkg_out/ambiglyph",
-    "compile-macos-arm64": "pkg -t macos-arm64 --compress GZip -c ./package.json ./dist/index.js -o ./pkg_out/ambiglyph"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint index.ts src"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Sadykhzadeh/ambiglyph-cli.git"
+    "url": "git+https://got.az/azer/ambiglyph-cli.git"
   },
-  "keywords": [],
+  "keywords": [
+    "homoglyph",
+    "unicode",
+    "cli",
+    "security"
+  ],
   "author": "Azer Sadykhzadeh",
   "license": "",
   "bugs": {
-    "url": "https://github.com/Sadykhzadeh/ambiglyph-cli/issues"
+    "url": "https://got.az/azer/ambiglyph-cli/issues"
   },
-  "homepage": "https://github.com/Sadykhzadeh/ambiglyph-cli#readme",
+  "homepage": "https://got.az/azer/ambiglyph-cli",
   "devDependencies": {
-    "@types/got": "^9.6.12",
-    "@types/md5": "^2.3.1",
-    "@types/node": "^16.11.10",
-    "@types/prompts": "^2.0.14",
-    "@typescript-eslint/eslint-plugin": "^5.3.1",
-    "@typescript-eslint/parser": "^5.3.1",
-    "commander": "^8.3.0",
-    "dotenv": "^10.0.0",
-    "eslint": "^8.2.0",
-    "got": "^12.5.3",
-    "pkg": "^5.4.1",
-    "prompts": "^2.4.2",
-    "typescript": "^4.4.4"
+    "@eslint/js": "^9.37.0",
+    "@types/node": "^22.18.8",
+    "@types/prompts": "^2.4.9",
+    "eslint": "^9.37.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.46.0"
   },
-  "type": "module"
+  "type": "module",
+  "bin": {
+    "ambiglyph": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "commander": "^14.0.1",
+    "dotenv": "^17.2.3",
+    "got": "^14.5.0",
+    "prompts": "^2.4.2"
+  }
 }

@@ -1,10 +1,11 @@
 import { Command } from 'commander';
-import { checkContent } from './checkContent';
-import { tryToLogIn } from './login';
-import { tryToLogOut } from './logout';
-import { sendFile } from './sendWords';
+import { checkContent } from './checkContent/index.js';
+import { tryToLogIn } from './login/index.js';
+import { tryToLogOut } from './logout/index.js';
+import { sendFile } from './sendWords/index.js';
 
 const program = new Command();
+program.name('ambiglyph');
 program.version(process.env.version || "¯\\_(ツ)_/¯");
 
 program.command('login').description('Login to Ambiglyph Server').action(tryToLogIn);

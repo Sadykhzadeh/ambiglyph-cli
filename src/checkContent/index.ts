@@ -1,9 +1,9 @@
 import got from 'got';
 import fs from 'fs';
-import { checkFile } from '../middlewares/checkAll';
-import { cropFile } from '../middlewares/cropFile';
-import { fileExists } from '../middlewares/fileExists';
-import { isNotEqual } from '../middlewares/isEqual';
+import { checkFile } from '../middlewares/checkAll.js';
+import { cropFile } from '../middlewares/cropFile.js';
+import { fileExists } from '../middlewares/fileExists.js';
+import { isNotEqual } from '../middlewares/isEqual.js';
 import prompts from 'prompts';
 
 interface ServerAnswer {
@@ -27,9 +27,11 @@ export async function checkContent(path: string, serverWordPerRequest: number): 
   if (await checkFile(path)) {
     const resOfCrop: Array<Array<string> | "\n"> = cropFile(path, serverWordPerRequest);
     if (!fileExists("./.ambi")) return console.error("🤨 Hey, you did not log in to server...");
-    try { fs.unlinkSync(`${process.cwd()}/${path}.remove`); } catch (e) { e; }
-    fs.writeFileSync(`${process.cwd()}/${path}.remove`, "");
-    const streamData = fs.createWriteStream(`${process.cwd()}/${path}.remove`);
+    // createWriteStream truncates an existing file, so the unlink-then-write
+    // that used to precede it was doing nothing.
+    const outputPath = `${process.cwd()}/${path}.remove`;
+    const streamData = fs.createWriteStream(outputPath);
+    const token = fs.readFileSync("./.ambi", "utf8").trim();
     console.log("⏳Loading...");
     for (const arr of resOfCrop) {
       try {
@@ -42,7 +44,7 @@ export async function checkContent(path: string, serverWordPerRequest: number): 
             },
             responseType: 'json',
             headers: {
-              "Authorization": `Bearer ${fs.readFileSync("./.ambi")}`
+              "Authorization": `Bearer ${token}`
             }
           });
           const postResponce = postRequest.body;
@@ -52,9 +54,12 @@ export async function checkContent(path: string, serverWordPerRequest: number): 
             const diffCheck: Array<string> = diff2Strings(arr.join(" "), futureText);
             for (let i = 0; i < diffCheck.length; i++) {
               const choiseArr: Array<{ title: string, value: string }> = [];
-              for (const cand of postResponce.candidates[i]) {
+              // A detection carrying no candidates used to throw here, on
+              // choiseArr[0].value further down.
+              for (const cand of postResponce.candidates[i] ?? []) {
                 choiseArr.push({ title: cand, value: cand });
               }
+              if (!choiseArr.length) continue;
               const askForReplace = await prompts({
                 type: 'select',
                 name: 'value',
@@ -67,9 +72,14 @@ export async function checkContent(path: string, serverWordPerRequest: number): 
           }
           streamData.write(futureText);
         } else if (arr == "\n") streamData.write("\n");
-      } catch (e) { console.error(process.env.errorText); }
+      } catch { console.error(process.env.errorText); }
     }
-    streamData.close();
+    // close() returns immediately, so the old code could announce the file
+    // before the queued writes had actually reached it.
+    await new Promise<void>((resolve, reject) => {
+      streamData.once('error', reject);
+      streamData.end(resolve);
+    });
     console.log(`✅ Done! Check file ${path}.remove\nIf it's okay, remove the ".remove" part from file name!`);
   }
   else return;
