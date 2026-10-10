@@ -37,12 +37,12 @@ and `check` have to be run from the same place.
 
 ## Configuration
 
-Read from the environment or a `.env` file - see `.sample.env`.
+Read from the environment or a `.env` file in the current directory - see
+`.sample.env`. Only the server commands read it.
 
 | Variable | Meaning |
 | --- | --- |
 | `url` | Base URL of the Ambiglyph server |
-| `version` | Version string reported by `--version` |
 | `serverWordPerRequest` | Words sent per request (default 4) |
 | `errorText` | Message shown when a request fails |
 
