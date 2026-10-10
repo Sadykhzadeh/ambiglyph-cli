@@ -1,7 +1,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -94,10 +94,39 @@ test('- reads stdin', () => {
   assert.match(r.out, /^<stdin>:1:12 /);
 });
 
+test('--fix rewrites the files and exits 0 once nothing is left', () => {
+  const root = tree({ 'a.md': spoofed, 'b.txt': 'x\u200By\r\n', 'c.txt': 'plain\n' });
+  const r = run(root, ['check', '--fix']);
+  assert.equal(r.code, 0);
+  assert.match(r.out, /a\.md:1:12 .* -> paypal \(fixed\)/);
+  assert.match(r.out, /b\.txt:1:2 .* \(removed\)/);
+  assert.match(r.err, /2 problems in 2 of 3 files checked, 2 fixed/);
+  assert.equal(readFileSync(join(root, 'a.md'), 'utf8'), 'log in at paypal.com\n');
+  assert.equal(readFileSync(join(root, 'b.txt'), 'utf8'), 'xy\r\n');
+  assert.equal(run(root, ['check']).code, 0);
+});
+
+test('--fix exits 1 while something it cannot fix is left', () => {
+  const root = tree({ 'a.md': `Gr\u03B5ece ${spoofed}` });
+  const r = run(root, ['check', '--fix', '--json']);
+  assert.equal(r.code, 1);
+  assert.deepEqual(JSON.parse(r.out).map((f: { fixed?: boolean }) => f.fixed ?? false), [false, true]);
+  assert.equal(readFileSync(join(root, 'a.md'), 'utf8'), 'Gr\u03B5ece log in at paypal.com\n');
+});
+
+test('--fix - is a filter: fixed text out, report on stderr', () => {
+  const r = run(tree({}), ['check', '--fix', '-'], `a\r\n${spoofed}`);
+  assert.equal(r.code, 0);
+  assert.equal(r.out, 'a\r\nlog in at paypal.com\n');
+  assert.match(r.err, /<stdin>:2:12 .* \(fixed\)/);
+  assert.equal(run(tree({}), ['check', '--fix', '-'], 'plain\n').out, 'plain\n');
+});
+
 test('usage errors exit 2', () => {
   const root = tree({});
   assert.equal(run(root, ['check', '--nope']).code, 2);
   assert.equal(run(root, ['check', '--server', 'a', 'b']).code, 2);
+  assert.equal(run(root, ['check', '--fix', '-', 'a.txt']).code, 2);
   const r = run(root, ['check', '--server', 'a.txt']);
   assert.equal(r.code, 2);
   assert.match(r.err, /set `url`/);

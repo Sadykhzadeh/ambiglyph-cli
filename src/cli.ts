@@ -27,15 +27,19 @@ program.exitOverride(e => process.exit(e.exitCode === 0 ? 0 : 2));
 program.command('check [paths...]')
   .description('find homoglyphs, mixed scripts and invisible characters, offline')
   .option('--json', 'print the findings as JSON')
+  .option('--fix', 'rewrite the files with every suggested fix applied')
   .option('--server', 'check one file against an Ambiglyph server instead (needs `login`)')
   .addHelpText('after', `
 Paths can be files, directories (walked, skipping node_modules and .git) or
-globs; - reads stdin. The default is the current directory.
+globs; - reads stdin. The default is the current directory. With --fix, a
+lone - turns the command into a filter: fixed text out, report on stderr.
 
-Exit status: 0 nothing found, 1 problems found, 2 the check could not run.`)
-  .action(async (paths: string[], options: { json?: boolean, server?: boolean }) => {
+Exit status: 0 nothing found (or all of it fixed), 1 problems found, 2 the
+check could not run.`)
+  .action(async (paths: string[], options: { json?: boolean, fix?: boolean, server?: boolean }) => {
+    if (options.fix && paths.includes('-') && paths.length > 1) program.error('--fix reads - only on its own');
     if (options.server) {
-      if (paths.length !== 1 || options.json) program.error('--server checks exactly one file, without --json');
+      if (paths.length !== 1 || options.json || options.fix) program.error('--server checks exactly one file, without --json or --fix');
       if (!serverConfigured()) return;
       const { checkContent } = await import('./checkContent/index.js');
       await checkContent(paths[0], wordsPerRequest());

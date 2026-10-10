@@ -25,12 +25,13 @@ ambiglyph check                    # everything under the current directory
 ambiglyph check README.md src      # files and directories
 ambiglyph check 'docs/**/*.md'     # globs, expanded by ambiglyph itself
 git show | ambiglyph check -       # standard input
+ambiglyph check --fix docs         # apply every suggested fix in place
 ```
 
 ```
 docs/login.md:12:9  mixed-script  "pаypal" mixes Latin with Cyrillic: а U+0430 (Cyrillic) -> paypal
 src/auth.ts:40:23  invisible  U+202E RIGHT-TO-LEFT OVERRIDE can reorder how the text around it is displayed (remove it)
-2 problems in 2 of 31 files checked
+2 problems in 2 of 31 files checked (2 fixable with --fix)
 ```
 
 Each finding is `file:line:column`, the rule, what is wrong and, when there is
@@ -50,17 +51,32 @@ Directories are walked including dotfiles such as `.github`, but skipping
 `node_modules` and `.git`. A file with a NUL byte in its first 8000 bytes is
 taken as binary and skipped.
 
+### Fixing
+
+`--fix` rewrites each file with every suggestion applied. Only the flagged
+characters change; line endings, a byte order mark and the rest of the file
+stay exactly as they were. A finding with no suggestion, such as a Greek "ε"
+in a Latin word, is reported and left for you. Given `-` alone, `--fix` is a
+filter: the corrected text goes to standard output and the report to
+standard error.
+
+```sh
+ambiglyph check --fix - < draft.md > clean.md
+```
+
 ### In CI and git hooks
 
 The exit status is 0 when nothing is found, 1 when something is, and 2 when
-the check could not run: a missing file, a glob that matches nothing, or a bad
-option.
+the check could not run: a missing file, a glob that matches nothing, a file
+`--fix` could not write, or a bad option. With `--fix`, only what is left
+unfixed counts.
 
 `--json` prints all findings as one array. Each has `file`, `line`, `column`,
 `rule`, `message`, `text` (the word), `suggestion` (absent when there is none,
 empty when the fix is to delete), `index` (UTF-16 offset in the file) and
 `suspects`, one per character, with its `char`, `codePoint`, `script`, `index`
-and `replacement`.
+and `replacement`. With `--fix`, the findings that were applied carry
+`"fixed": true`.
 
 A pre-commit hook that checks what is being committed:
 

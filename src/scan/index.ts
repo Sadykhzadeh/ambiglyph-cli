@@ -1,11 +1,15 @@
 import { readFileSync } from 'fs';
-import { readFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { isAscii } from 'buffer';
 import { detect, type Finding } from '../engine/detect.js';
+import { applyFixes } from '../engine/fix.js';
 import { expand, InputError } from './files.js';
 
 export interface ScanOptions {
   json?: boolean;
+  // Rewrite each file with the suggestions applied. With '-' as the only
+  // input, the corrected text goes to stdout and the report to stderr.
+  fix?: boolean;
 }
 
 // Exit codes, as linters use them: 0 clean, 1 findings, 2 the check itself failed.
@@ -23,7 +27,9 @@ const READ_AHEAD = 8;
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 function line(file: string, f: Finding): string {
-  const fix = f.suggestion === undefined ? '' : f.suggestion === '' ? ' (remove it)' : ` -> ${f.suggestion}`;
+  const fix = f.suggestion === undefined ? ''
+    : f.suggestion === '' ? (f.fixed ? ' (removed)' : ' (remove it)')
+      : ` -> ${f.suggestion}${f.fixed ? ' (fixed)' : ''}`;
   return `${file}:${f.line}:${f.column}  ${f.rule}  ${f.message}${fix}\n`;
 }
 
@@ -53,8 +59,13 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
     (file === '-' ? Promise.resolve().then(() => readFileSync(0)) : readFile(file)).catch((e: Error) => e);
   const reads = queue.slice(0, READ_AHEAD).map(load);
 
+  const filter = options.fix === true && queue.length === 1 && queue[0] === '-';
+  const report = filter ? process.stderr : process.stdout;
+
   const json: Array<Finding & { file: string }> = [];
   let problems = 0;
+  let fixable = 0;
+  let fixed = 0;
   let checked = 0;
   let withProblems = 0;
   for (let i = 0; i < queue.length; i++) {
@@ -66,22 +77,44 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
       fail(`${file}: ${(data as NodeJS.ErrnoException).code ?? data.message}`);
       continue;
     }
-    if (isBinary(data)) continue;
-    checked++;
     // Most files in a repository are pure ASCII, which is settled on the raw
     // bytes without decoding them at all.
-    if (isAscii(data)) continue;
+    const binary = isBinary(data);
+    if (binary || isAscii(data)) {
+      if (filter) process.stdout.write(data);
+      if (!binary) checked++;
+      continue;
+    }
+    checked++;
     const name = file === '-' ? '<stdin>' : file;
-    const findings = detect(data.toString('utf8'));
+    const text = data.toString('utf8');
+    const findings = detect(text);
+    let output = text;
+    if (options.fix && findings.length) {
+      output = applyFixes(text, findings);
+      if (!filter && output !== text) {
+        try { await writeFile(file, output); } catch (e) {
+          fail(`${file}: could not write the fixes: ${(e as NodeJS.ErrnoException).code ?? (e as Error).message}`);
+          for (const f of findings) f.fixed = false;
+        }
+      }
+    }
+    if (filter) process.stdout.write(output);
     if (!findings.length) continue;
     problems += findings.length;
     withProblems++;
+    for (const f of findings) {
+      if (f.fixed) fixed++; else if (f.suggestion !== undefined) fixable++;
+    }
     if (options.json) for (const f of findings) json.push({ file: name, ...f });
-    else process.stdout.write(findings.map(f => line(name, f)).join(''));
+    else report.write(findings.map(f => line(name, f)).join(''));
   }
 
   if (options.json) process.stdout.write(`${JSON.stringify(json, null, 2)}\n`);
-  else if (problems) console.error(`${plural(problems, 'problem')} in ${withProblems} of ${plural(checked, 'file')} checked`);
-  else if (!failed) console.error(`${plural(checked, 'file')} checked, no problems`);
-  return failed ? FAILED : problems ? FOUND : CLEAN;
+  else if (problems) {
+    const fixes = options.fix ? `, ${fixed} fixed` : fixable ? ` (${fixable} fixable with --fix)` : '';
+    console.error(`${plural(problems, 'problem')} in ${withProblems} of ${plural(checked, 'file')} checked${fixes}`);
+  } else if (!failed) console.error(`${plural(checked, 'file')} checked, no problems`);
+  // With --fix, only what is left unfixed counts.
+  return failed ? FAILED : problems > fixed ? FOUND : CLEAN;
 }

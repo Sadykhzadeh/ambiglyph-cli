@@ -25,6 +25,8 @@ export interface Finding {
   suspects: Suspect[];
   // The word with every suspect replaced, when each of them has a replacement.
   suggestion?: string;
+  // Set by applyFixes once the suggestion has been applied.
+  fixed?: boolean;
 }
 
 interface CharInfo {
