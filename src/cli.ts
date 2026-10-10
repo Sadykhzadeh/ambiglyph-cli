@@ -5,9 +5,14 @@ import { Command } from 'commander';
 // load, and --help, --version and a typo should not pay for it.
 
 // Only the server commands read configuration, so the .env file is parsed
-// there and nowhere else. A missing file is fine, as it was with dotenv.
-const loadEnv = (): void => {
+// there and nowhere else. A missing file is fine, as it was with dotenv; a
+// missing server URL is not, since every request would go to "undefined".
+const serverConfigured = (): boolean => {
   try { process.loadEnvFile(); } catch { /* no .env */ }
+  if (process.env.url) return true;
+  console.error('ambiglyph: set `url` to your Ambiglyph server, in the environment or a .env file (see .sample.env)');
+  process.exitCode = 2;
+  return false;
 };
 const wordsPerRequest = (): number => +(process.env.serverWordPerRequest || 4);
 
@@ -16,24 +21,42 @@ const { version } = JSON.parse(readFileSync(new URL('../../package.json', import
 const program = new Command();
 program.name('ambiglyph');
 program.version(version);
+// A usage error exits with 2, so that 1 keeps meaning "problems found".
+program.exitOverride(e => process.exit(e.exitCode === 0 ? 0 : 2));
 
-program.command('login').description('Login to Ambiglyph Server').action(async () => {
-  loadEnv();
+program.command('check [paths...]')
+  .description('find homoglyphs, mixed scripts and invisible characters, offline')
+  .option('--json', 'print the findings as JSON')
+  .option('--server', 'check one file against an Ambiglyph server instead (needs `login`)')
+  .addHelpText('after', `
+Paths can be files, directories (walked, skipping node_modules and .git) or
+globs; - reads stdin. The default is the current directory.
+
+Exit status: 0 nothing found, 1 problems found, 2 the check could not run.`)
+  .action(async (paths: string[], options: { json?: boolean, server?: boolean }) => {
+    if (options.server) {
+      if (paths.length !== 1 || options.json) program.error('--server checks exactly one file, without --json');
+      if (!serverConfigured()) return;
+      const { checkContent } = await import('./checkContent/index.js');
+      await checkContent(paths[0], wordsPerRequest());
+      return;
+    }
+    const { scan } = await import('./scan/index.js');
+    process.exitCode = await scan(paths.length ? paths : ['.'], options);
+  });
+
+program.command('login').description('log in to an Ambiglyph server').action(async () => {
+  if (!serverConfigured()) return;
   const { tryToLogIn } = await import('./login/index.js');
   await tryToLogIn();
 });
-program.command('logout').description('Logout to Ambiglyph Server').action(async () => {
+program.command('logout').description('forget the server token').action(async () => {
   const { tryToLogOut } = await import('./logout/index.js');
   await tryToLogOut();
 });
-program.command('add <usPath>').description('Add all words of your file to cloud storage').action(async (usPath) => {
-  loadEnv();
+program.command('add <usPath>').description('add every word of a file to your word list on the server').action(async (usPath) => {
+  if (!serverConfigured()) return;
   const { sendFile } = await import('./sendWords/index.js');
   await sendFile(usPath, wordsPerRequest());
-});
-program.command('check <usPath>').description('Check your file via your cloud storage words or via our database').action(async (usPath) => {
-  loadEnv();
-  const { checkContent } = await import('./checkContent/index.js');
-  await checkContent(usPath, wordsPerRequest());
 });
 await program.parseAsync(process.argv);

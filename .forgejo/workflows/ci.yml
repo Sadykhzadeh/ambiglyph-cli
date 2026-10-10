@@ -20,3 +20,5 @@ jobs:
       - run: npm test
       - name: the built CLI has to actually start
         run: node dist/index.js --help
+      - name: the sources pass their own check
+        run: node dist/index.js check index.ts src test scripts .forgejo
