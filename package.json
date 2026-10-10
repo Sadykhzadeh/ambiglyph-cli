@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint index.ts src"
+    "lint": "eslint index.ts src test",
+    "test": "tsc && node --test \"dist/test/**/*.test.js\"",
+    "confusables": "node scripts/generate-confusables.mjs"
   },
   "repository": {
     "type": "git",
@@ -37,10 +39,11 @@
     "ambiglyph": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist/index.js",
+    "dist/src"
   ],
   "engines": {
-    "node": ">=20.12.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "commander": "^14.0.1",
