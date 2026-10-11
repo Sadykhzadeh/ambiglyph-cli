@@ -80,6 +80,13 @@ test('several words on a line, in order', () => {
   assert.deepEqual(found.map(f => [f.text, f.column]), [['p\u0430y', 2], ['r\u0435fund', 10]]);
 });
 
+test('findings of every rule come out in text order', () => {
+  const found = detect('p\u0430y \u200B r\u0435fund \u{E0068}\u{E0069} \uFF41');
+  assert.deepEqual(found.map(f => [f.rule, f.column]), [
+    ['mixed-script', 2], ['invisible', 5], ['mixed-script', 8], ['invisible', 14], ['confusable', 19],
+  ]);
+});
+
 test('lines and columns, with CRLF and astral characters', () => {
   const [a, b] = detect('ok\r\nx\u0430y\n\u{1D41A}\u{1D41B} z\u0435d');
   assert.deepEqual([a.line, a.column], [2, 2]);
@@ -110,4 +117,10 @@ test('tag characters are decoded, except inside a flag', () => {
 
 test('emoji and symbols are not words', () => {
   assert.deepEqual(detect('\u2139\uFE0F note \u2014 \u201Cquoted\u201D \u00A9 2026 \u00B5s'), []);
+});
+
+test('a lone surrogate does not hide the character after it', () => {
+  const [f, ...rest] = detect('\uD800\uFF41');
+  assert.equal(rest.length, 0);
+  assert.deepEqual([f.rule, f.index, f.suggestion], ['confusable', 1, 'a']);
 });

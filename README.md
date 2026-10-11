@@ -102,8 +102,8 @@ becomes "I", and a Cyrillic "ә" in Azerbaijani text becomes the Latin "ə".
 On Node 24 a single file is checked in about 55 ms, most of which is Node
 starting up, and all 3,100 files of this project's `node_modules` (41 MB) in
 about 0.2 s. A file that is pure ASCII is settled on its raw bytes; text runs
-at roughly 90 MB/s in Russian or Azerbaijani, where every word has to be
-looked at, and several hundred MB/s in English.
+at roughly 200 MB/s in Russian or Azerbaijani, where every word has to be
+looked at, and about 1 GB/s in English.
 
 ## Server commands
 

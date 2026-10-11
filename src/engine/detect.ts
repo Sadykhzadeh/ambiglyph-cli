@@ -150,7 +150,6 @@ const INVISIBLE_NAMES: Record<number, string> = {
   0xfeff: 'ZERO WIDTH NO-BREAK SPACE',
   0xffa0: 'HALFWIDTH HANGUL FILLER',
 };
-const INVISIBLE = /[\u00AD\u115F\u1160\u180E\u200B\u202A-\u202E\u2060-\u2064\u2066-\u2069\u3164\uFEFF\uFFA0]|[\u{E0000}-\u{E007F}]+/gu;
 const BLACK_FLAG = '\u{1F3F4}';
 
 const NON_ASCII = /[\x80-\uFFFF]/g;
@@ -250,40 +249,42 @@ function checkWord(text: string, start: number, end: number, out: Finding[]): vo
   });
 }
 
-function checkInvisible(text: string, out: Finding[]): void {
-  INVISIBLE.lastIndex = 0;
-  for (let m = INVISIBLE.exec(text); m; m = INVISIBLE.exec(text)) {
-    const index = m.index;
-    const cp = text.codePointAt(index)!;
+// Reports the invisible character at `index`, if it is one, and returns where
+// the scan should go on; a run of tag characters is reported as a whole.
+function checkInvisible(text: string, index: number, cp: number, out: Finding[]): number {
+  let next = index + (cp > 0xffff ? 2 : 1);
+  let name = INVISIBLE_NAMES[cp];
+  let message: string;
+  if (name !== undefined) {
     // A byte order mark is only invisible noise when it is not the first character.
-    if (cp === 0xfeff && index === 0) continue;
-    let name: string;
-    let message: string;
-    if (cp >= 0xe0000) {
-      // Tag characters legitimately follow a black flag in subdivision flags
-      // such as England's; anywhere else they smuggle text nobody can see.
-      if (text.slice(index - 2, index) === BLACK_FLAG) continue;
-      const tags = [...m[0]];
-      const hidden = tags.map(c => c.codePointAt(0)! - 0xe0000).filter(c => c >= 0x20 && c < 0x7f);
-      const shown = String.fromCharCode(...hidden.slice(0, 40)) + (hidden.length > 40 ? '...' : '');
-      name = 'TAG CHARACTERS';
-      message = `${tags.length} invisible tag characters${hidden.length ? ` spelling ${JSON.stringify(shown)}` : ''}`;
-    } else {
-      name = INVISIBLE_NAMES[cp];
-      const isBidi = (cp >= 0x202a && cp <= 0x202e) || (cp >= 0x2066 && cp <= 0x2069);
-      message = `${hex(cp)} ${name}${isBidi ? ' can reorder how the text around it is displayed' : ' is invisible'}`;
+    if (cp === 0xfeff && index === 0) return next;
+    const isBidi = (cp >= 0x202a && cp <= 0x202e) || (cp >= 0x2066 && cp <= 0x2069);
+    message = `${hex(cp)} ${name}${isBidi ? ' can reorder how the text around it is displayed' : ' is invisible'}`;
+  } else if (cp >= 0xe0000 && cp <= 0xe007f) {
+    const hidden: number[] = [];
+    next = index;
+    for (let c = cp; c >= 0xe0000 && c <= 0xe007f; c = text.codePointAt(next) ?? 0) {
+      if (c >= 0xe0020 && c < 0xe007f) hidden.push(c - 0xe0000);
+      next += 2;
     }
-    out.push({
-      rule: 'invisible',
-      line: 0,
-      column: 0,
-      index,
-      text: name,
-      message,
-      suspects: [{ char: m[0], codePoint: hex(cp), script: '', index, replacement: '' }],
-      suggestion: '',
-    });
-  }
+    // Tag characters legitimately follow a black flag in subdivision flags
+    // such as England's; anywhere else they smuggle text nobody can see.
+    if (text.slice(index - 2, index) === BLACK_FLAG) return next;
+    const shown = String.fromCharCode(...hidden.slice(0, 40)) + (hidden.length > 40 ? '...' : '');
+    name = 'TAG CHARACTERS';
+    message = `${(next - index) / 2} invisible tag characters${hidden.length ? ` spelling ${JSON.stringify(shown)}` : ''}`;
+  } else return next;
+  out.push({
+    rule: 'invisible',
+    line: 0,
+    column: 0,
+    index,
+    text: name,
+    message,
+    suspects: [{ char: text.slice(index, next), codePoint: hex(cp), script: '', index, replacement: '' }],
+    suggestion: '',
+  });
+  return next;
 }
 
 function locate(text: string, findings: Finding[]): void {
@@ -305,12 +306,12 @@ export function detect(text: string): Finding[] {
   NON_ASCII.lastIndex = 0;
   if (!NON_ASCII.test(text)) return [];
   const findings: Finding[] = [];
-  checkInvisible(text, findings);
 
   // Walk from one non-ASCII character to the next and measure the word it is
   // in. Text between them is ASCII, so a word can only reach back into it.
   // Most words are in one script and hold nothing the table restricts; only
-  // the rest are looked at closely.
+  // the rest are looked at closely. A character that is no part of a word is
+  // checked for being invisible. Findings come out in order.
   const length = text.length;
   NON_ASCII.lastIndex = 0;
   for (let m = NON_ASCII.exec(text); m; m = NON_ASCII.exec(text)) {
@@ -342,14 +343,13 @@ export function detect(text: string): Finding[] {
       end += cp > 0xffff ? 2 : 1;
     }
     if (end === at) {
-      if (text.charCodeAt(at) >= 0xd800 && text.charCodeAt(at) <= 0xdbff) NON_ASCII.lastIndex = at + 2;
+      NON_ASCII.lastIndex = checkInvisible(text, at, text.codePointAt(at)!, findings);
       continue;
     }
     if (closer) checkWord(text, start, end, findings);
     NON_ASCII.lastIndex = end;
   }
 
-  if (findings.length > 1) findings.sort((a, b) => a.index - b.index);
   locate(text, findings);
   return findings;
 }
