@@ -27,6 +27,7 @@ program.exitOverride(e => process.exit(e.exitCode === 0 ? 0 : 2));
 program.command('check [paths...]')
   .description('find homoglyphs, mixed scripts and invisible characters, offline')
   .option('--json', 'print the findings as JSON')
+  .option('--sarif', 'print the findings as a SARIF log, for code scanning')
   .option('--fix', 'rewrite the files with every suggested fix applied')
   .option('--staged', 'check the files staged in git, as they will be committed (for a pre-commit hook)')
   .option('--server', 'check one file against an Ambiglyph server instead (needs `login`)')
@@ -40,11 +41,12 @@ lone - turns the command into a filter: fixed text out, report on stderr.
 
 Exit status: 0 nothing found (or all of it fixed), 1 problems found, 2 the
 check could not run.`)
-  .action(async (paths: string[], options: { json?: boolean, fix?: boolean, staged?: boolean, server?: boolean }) => {
+  .action(async (paths: string[], options: { json?: boolean, sarif?: boolean, fix?: boolean, staged?: boolean, server?: boolean }) => {
     if (options.fix && paths.includes('-') && paths.length > 1) program.error('--fix reads - only on its own');
+    if (options.json && options.sarif) program.error('--json and --sarif are two formats; pick one');
     if (options.staged && (paths.length || options.fix || options.server)) program.error('--staged checks the staged files on its own, without paths, --fix or --server');
     if (options.server) {
-      if (paths.length !== 1 || options.json || options.fix) program.error('--server checks exactly one file, without --json or --fix');
+      if (paths.length !== 1 || options.json || options.sarif || options.fix) program.error('--server checks exactly one file, without --json, --sarif or --fix');
       if (!serverConfigured()) return;
       const { checkContent } = await import('./checkContent/index.js');
       await checkContent(paths[0], wordsPerRequest());

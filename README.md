@@ -27,6 +27,7 @@ ambiglyph check 'docs/**/*.md'     # globs, expanded by ambiglyph itself
 git show | ambiglyph check -       # standard input
 ambiglyph check --fix docs         # apply every suggested fix in place
 ambiglyph check --staged           # what git is about to commit
+ambiglyph check --sarif > out.sarif # SARIF for code scanning
 ```
 
 ```
@@ -83,6 +84,18 @@ and `replacement`. With `--fix`, the findings that were applied carry
 index, so a file edited after `git add` is judged as it will be committed, not as
 it is on disk, and paths are shown relative to the current directory. With
 nothing staged it exits 0. It cannot be combined with paths or `--fix`.
+
+`--sarif` prints the same findings as a SARIF 2.1.0 log, which GitHub code scanning
+and most CI dashboards read. Paths are relative to the working directory and
+the exit status is unchanged, so a workflow step that should still upload the
+results has to tolerate the 1:
+
+```yaml
+- run: npx ambiglyph check --sarif > ambiglyph.sarif || [ $? -eq 1 ]
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: ambiglyph.sarif
+```
 
 A pre-commit hook (`.git/hooks/pre-commit`, made executable):
 

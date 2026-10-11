@@ -8,6 +8,8 @@ import { stagedFiles } from './staged.js';
 
 export interface ScanOptions {
   json?: boolean;
+  // All findings as one SARIF 2.1.0 log, for code scanning.
+  sarif?: boolean;
   // Rewrite each file with the suggestions applied. With '-' as the only
   // input, the corrected text goes to stdout and the report to stderr.
   fix?: boolean;
@@ -117,11 +119,12 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
     for (const f of findings) {
       if (f.fixed) fixed++; else if (f.suggestion !== undefined) fixable++;
     }
-    if (options.json) for (const f of findings) json.push({ file: name, ...f });
+    if (options.json || options.sarif) for (const f of findings) json.push({ file: name, ...f });
     else report.write(findings.map(f => line(name, f)).join(''));
   }
 
   if (options.json) process.stdout.write(`${JSON.stringify(json, null, 2)}\n`);
+  else if (options.sarif) process.stdout.write((await import('./sarif.js')).sarif(json));
   else if (problems) {
     const fixes = options.fix ? `, ${fixed} fixed` : fixable ? ` (${fixable} fixable with --fix)` : '';
     console.error(`${plural(problems, 'problem')} in ${withProblems} of ${plural(checked, 'file')} checked${fixes}`);

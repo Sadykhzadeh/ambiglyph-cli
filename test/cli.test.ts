@@ -182,3 +182,31 @@ test('--staged works from a subdirectory and reports paths relative to it', () =
   assert.match(r.out, /^a\.md:1:12 /);
   assert.equal(r.out.split('\n').filter(Boolean).length, 1);
 });
+
+test('--sarif prints a SARIF 2.1.0 log with one result per finding', () => {
+  const root = tree({ 'docs/a b.md': `x\n${spoofed}`, 'ok.txt': 'fine\n' });
+  const r = run(root, ['check', '--sarif']);
+  assert.equal(r.code, 1);
+  const log = JSON.parse(r.out);
+  assert.equal(log.version, '2.1.0');
+  const [run0] = log.runs;
+  assert.equal(run0.tool.driver.name, 'ambiglyph');
+  assert.deepEqual(run0.tool.driver.rules.map((x: { id: string }) => x.id), ['mixed-script', 'confusable', 'invisible']);
+  assert.equal(run0.results.length, 1);
+  const [res] = run0.results;
+  assert.equal(res.ruleId, 'mixed-script');
+  assert.equal(res.ruleIndex, 0);
+  assert.match(res.message.text, /-> paypal$/);
+  const loc = res.locations[0].physicalLocation;
+  assert.equal(loc.artifactLocation.uri, 'docs/a%20b.md');
+  assert.deepEqual(loc.region, { startLine: 2, startColumn: 12 });
+  assert.equal(r.err, '');
+});
+
+test('--sarif on a clean tree is a log with no results, and --json cannot join it', () => {
+  const root = tree({ 'ok.txt': 'fine\n' });
+  const r = run(root, ['check', '--sarif']);
+  assert.equal(r.code, 0);
+  assert.deepEqual(JSON.parse(r.out).runs[0].results, []);
+  assert.equal(run(root, ['check', '--sarif', '--json']).code, 2);
+});
