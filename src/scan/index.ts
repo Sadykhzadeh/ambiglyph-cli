@@ -4,6 +4,7 @@ import { isAscii } from 'buffer';
 import { detect, type Finding } from '../engine/detect.js';
 import { applyFixes } from '../engine/fix.js';
 import { expand, InputError } from './files.js';
+import { ignoreMatcher, withoutIgnored } from './ignore.js';
 import { stagedFiles } from './staged.js';
 
 export interface ScanOptions {
@@ -15,6 +16,8 @@ export interface ScanOptions {
   fix?: boolean;
   // Check what is staged in git, as it will be committed, instead of paths.
   staged?: boolean;
+  // Files matching any of these globs are not checked.
+  ignore?: string[];
 }
 
 // Exit codes, as linters use them: 0 clean, 1 findings, 2 the check itself failed.
@@ -67,7 +70,8 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
 
   // Up to READ_AHEAD files are being read while one is checked, and results
   // are still taken in order, so the output does not depend on timing.
-  const queue = [...new Set(files)];
+  const ignored = options.ignore?.length ? ignoreMatcher(options.ignore) : undefined;
+  const queue = [...new Set(files)].filter(file => file === '-' || !ignored?.(file));
   const load = (file: string): Promise<Buffer | Error> =>
     (options.staged ? Promise.resolve(staged.get(file)!) : file === '-' ? Promise.resolve().then(() => readFileSync(0)) : readFile(file)).catch((e: Error) => e);
   const reads = queue.slice(0, READ_AHEAD).map(load);
@@ -101,7 +105,7 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
     checked++;
     const name = file === '-' ? '<stdin>' : file;
     const text = data.toString('utf8');
-    const findings = detect(text);
+    const findings = withoutIgnored(text, detect(text));
     let output = text;
     if (options.fix && findings.length) {
       output = applyFixes(text, findings);

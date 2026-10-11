@@ -210,3 +210,46 @@ test('--sarif on a clean tree is a log with no results, and --json cannot join i
   assert.deepEqual(JSON.parse(r.out).runs[0].results, []);
   assert.equal(run(root, ['check', '--sarif', '--json']).code, 2);
 });
+
+test('--ignore skips the files a glob matches, and can be repeated', () => {
+  const root = tree({
+    'a.md': spoofed,
+    'docs/b.md': spoofed,
+    'vendor/lib/c.txt': spoofed,
+    'src/d.txt': spoofed,
+  });
+  const only = (args: string[]) => run(root, ['check', '--json', ...args]).out;
+  const files = (args: string[]) => JSON.parse(only(args)).map((f: { file: string }) => f.file.replace(/\\/g, '/')).sort();
+  assert.deepEqual(files([]), ['a.md', 'docs/b.md', 'src/d.txt', 'vendor/lib/c.txt']);
+  assert.deepEqual(files(['--ignore', '*.md']), ['src/d.txt', 'vendor/lib/c.txt']);
+  assert.deepEqual(files(['--ignore', 'vendor/**', '--ignore', 'docs/*.md']), ['a.md', 'src/d.txt']);
+  assert.deepEqual(files(['--ignore', '**/*.txt', 'src', 'a.md']), ['a.md']);
+  const all = run(root, ['check', '--ignore', '**']);
+  assert.equal(all.code, 0);
+  assert.match(all.err, /0 files checked, no problems/);
+});
+
+test('--ignore does not touch standard input, and --server refuses it', () => {
+  const root = tree({});
+  assert.equal(run(root, ['check', '--ignore', '*', '-'], spoofed).code, 1);
+  assert.equal(run(root, ['check', '--server', '--ignore', 'x', 'a.txt']).code, 2);
+});
+
+test('a line marked ambiglyph-ignore is not reported, nor fixed', () => {
+  const marked = 'p\u0430ypal # ambiglyph-ignore\n';
+  const root = tree({
+    'a.txt': `${marked}${spoofed}`,
+    'b.txt': `// ambiglyph-ignore-next-line\n${spoofed}${spoofed}`,
+    'c.txt': `<!-- ambiglyph-ignored -->${spoofed}`,
+  });
+  const r = run(root, ['check', '--json']);
+  assert.equal(r.code, 1);
+  assert.deepEqual(
+    JSON.parse(r.out).map((f: { file: string, line: number }) => [f.file, f.line]),
+    [['a.txt', 2], ['b.txt', 3], ['c.txt', 1]],
+  );
+  const fixed = run(root, ['check', '--fix', 'a.txt', 'b.txt']);
+  assert.equal(fixed.code, 0);
+  assert.equal(readFileSync(join(root, 'a.txt'), 'utf8'), `${marked}log in at paypal.com\n`);
+  assert.equal(readFileSync(join(root, 'b.txt'), 'utf8'), `// ambiglyph-ignore-next-line\n${spoofed}log in at paypal.com\n`);
+});

@@ -53,6 +53,25 @@ Directories are walked including dotfiles such as `.github`, but skipping
 `node_modules` and `.git`. A file with a NUL byte in its first 8000 bytes is
 taken as binary and skipped.
 
+### Ignoring
+
+`--ignore <glob>` skips the files a glob matches, and can be repeated. Globs
+are read against paths relative to the working directory; `*` and `?` stay
+inside one name, `**` crosses directories, and a pattern without a slash
+matches a name at any depth, as in `.gitignore`.
+
+```sh
+ambiglyph check --ignore 'vendor/**' --ignore '*.min.js'
+```
+
+For a single line, write `ambiglyph-ignore` in a comment on it, or
+`ambiglyph-ignore-next-line` on the line above. The findings on that line are
+not reported and `--fix` leaves them alone.
+
+```md
+Dear pаrtner <!-- ambiglyph-ignore -->
+```
+
 ### Fixing
 
 `--fix` rewrites each file with every suggestion applied. Only the flagged

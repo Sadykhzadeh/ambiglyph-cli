@@ -30,6 +30,7 @@ program.command('check [paths...]')
   .option('--sarif', 'print the findings as a SARIF log, for code scanning')
   .option('--fix', 'rewrite the files with every suggested fix applied')
   .option('--staged', 'check the files staged in git, as they will be committed (for a pre-commit hook)')
+  .option('--ignore <glob>', 'skip the files matching this glob (repeatable)', (glob: string, globs: string[] = []) => [...globs, glob])
   .option('--server', 'check one file against an Ambiglyph server instead (needs `login`)')
   .addHelpText('after', `
 With --staged, the files in git's index are checked instead, as they will be
@@ -40,13 +41,16 @@ globs; - reads stdin. The default is the current directory. With --fix, a
 lone - turns the command into a filter: fixed text out, report on stderr.
 
 Exit status: 0 nothing found (or all of it fixed), 1 problems found, 2 the
-check could not run.`)
-  .action(async (paths: string[], options: { json?: boolean, sarif?: boolean, fix?: boolean, staged?: boolean, server?: boolean }) => {
+check could not run.
+
+A finding is dropped when its line says ambiglyph-ignore, or when the line
+before it says ambiglyph-ignore-next-line, in a comment of any kind.`)
+  .action(async (paths: string[], options: { json?: boolean, sarif?: boolean, fix?: boolean, staged?: boolean, ignore?: string[], server?: boolean }) => {
     if (options.fix && paths.includes('-') && paths.length > 1) program.error('--fix reads - only on its own');
     if (options.json && options.sarif) program.error('--json and --sarif are two formats; pick one');
     if (options.staged && (paths.length || options.fix || options.server)) program.error('--staged checks the staged files on its own, without paths, --fix or --server');
     if (options.server) {
-      if (paths.length !== 1 || options.json || options.sarif || options.fix) program.error('--server checks exactly one file, without --json, --sarif or --fix');
+      if (paths.length !== 1 || options.json || options.sarif || options.fix || options.ignore) program.error('--server checks exactly one file, without --json, --sarif, --fix or --ignore');
       if (!serverConfigured()) return;
       const { checkContent } = await import('./checkContent/index.js');
       await checkContent(paths[0], wordsPerRequest());
