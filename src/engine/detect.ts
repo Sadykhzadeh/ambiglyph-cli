@@ -41,9 +41,12 @@ interface CharInfo {
 const hex = (cp: number): string => `U+${cp.toString(16).toUpperCase().padStart(4, '0')}`;
 
 // Everything about a code point is worked out once and cached: a document in
-// one script repeats the same few dozen letters thousands of times. The Basic
-// Multilingual Plane, where nearly all text lives, gets a plain array.
-const bmpCache: Array<CharInfo | undefined> = [];
+// one script repeats the same few dozen letters thousands of times. In the
+// Basic Multilingual Plane, where nearly all text lives, a typed array maps
+// the code point to its slot in `bmpInfos`; a sparse plain array would fall
+// back to dictionary lookups, which about doubled the time on Russian text.
+let bmpSlots: Uint16Array | undefined;
+const bmpInfos: CharInfo[] = [];
 const astralCache = new Map<number, CharInfo>();
 let table: Map<number, { to: string, restricted: boolean }> | undefined;
 // Ordinary letters by the replacement they share, for turning a stray
@@ -86,13 +89,17 @@ function scriptOf(ch: string): string {
 }
 
 function infoOf(cp: number): CharInfo {
-  let info = cp < 0x10000 ? bmpCache[cp] : astralCache.get(cp);
-  if (info === undefined) {
-    const ch = String.fromCodePoint(cp);
-    const entry = (table ?? loadTable()).get(cp);
-    info = { word: WORD_CHAR.test(ch), script: scriptOf(ch), to: entry?.to, restricted: entry?.restricted ?? false };
-    if (cp < 0x10000) bmpCache[cp] = info; else astralCache.set(cp, info);
+  if (cp < 0x10000) {
+    const slot = (bmpSlots ??= new Uint16Array(0x10000))[cp];
+    if (slot) return bmpInfos[slot - 1];
+  } else {
+    const cached = astralCache.get(cp);
+    if (cached) return cached;
   }
+  const ch = String.fromCodePoint(cp);
+  const entry = (table ?? loadTable()).get(cp);
+  const info: CharInfo = { word: WORD_CHAR.test(ch), script: scriptOf(ch), to: entry?.to, restricted: entry?.restricted ?? false };
+  if (cp < 0x10000) bmpSlots![cp] = bmpInfos.push(info); else astralCache.set(cp, info);
   return info;
 }
 
