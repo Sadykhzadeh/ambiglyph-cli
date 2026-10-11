@@ -26,6 +26,7 @@ ambiglyph check README.md src      # files and directories
 ambiglyph check 'docs/**/*.md'     # globs, expanded by ambiglyph itself
 git show | ambiglyph check -       # standard input
 ambiglyph check --fix docs         # apply every suggested fix in place
+ambiglyph check --staged           # what git is about to commit
 ```
 
 ```
@@ -78,12 +79,21 @@ empty when the fix is to delete), `index` (UTF-16 offset in the file) and
 and `replacement`. With `--fix`, the findings that were applied carry
 `"fixed": true`.
 
-A pre-commit hook that checks what is being committed:
+`--staged` checks what is about to be committed. It reads the content from git's
+index, so a file edited after `git add` is judged as it will be committed, not as
+it is on disk, and paths are shown relative to the current directory. With
+nothing staged it exits 0. It cannot be combined with paths or `--fix`.
+
+A pre-commit hook (`.git/hooks/pre-commit`, made executable):
 
 ```sh
 #!/bin/sh
-git diff --cached --name-only --diff-filter=ACMR -z | xargs -0 -r ambiglyph check
+exec ambiglyph check --staged
 ```
+
+It takes about as long as piping the file list through `xargs` (130 ms for 300
+files, almost all of it git and Node starting up), without the file-name
+plumbing.
 
 ### Where the verdicts come from
 

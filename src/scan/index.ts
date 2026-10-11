@@ -4,12 +4,15 @@ import { isAscii } from 'buffer';
 import { detect, type Finding } from '../engine/detect.js';
 import { applyFixes } from '../engine/fix.js';
 import { expand, InputError } from './files.js';
+import { stagedFiles } from './staged.js';
 
 export interface ScanOptions {
   json?: boolean;
   // Rewrite each file with the suggestions applied. With '-' as the only
   // input, the corrected text goes to stdout and the report to stderr.
   fix?: boolean;
+  // Check what is staged in git, as it will be committed, instead of paths.
+  staged?: boolean;
 }
 
 // Exit codes, as linters use them: 0 clean, 1 findings, 2 the check itself failed.
@@ -46,17 +49,25 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
   });
 
   const files: string[] = [];
-  for (const arg of args) {
-    try { files.push(...expand(arg)); } catch (e) {
-      if (e instanceof InputError) fail(e.message); else throw e;
+  let staged = new Map<string, Buffer>();
+  try {
+    if (options.staged) {
+      staged = stagedFiles();
+      files.push(...staged.keys());
+    } else for (const arg of args) {
+      try { files.push(...expand(arg)); } catch (e) {
+        if (e instanceof InputError) fail(e.message); else throw e;
+      }
     }
+  } catch (e) {
+    if (e instanceof InputError) fail(e.message); else throw e;
   }
 
   // Up to READ_AHEAD files are being read while one is checked, and results
   // are still taken in order, so the output does not depend on timing.
   const queue = [...new Set(files)];
   const load = (file: string): Promise<Buffer | Error> =>
-    (file === '-' ? Promise.resolve().then(() => readFileSync(0)) : readFile(file)).catch((e: Error) => e);
+    (options.staged ? Promise.resolve(staged.get(file)!) : file === '-' ? Promise.resolve().then(() => readFileSync(0)) : readFile(file)).catch((e: Error) => e);
   const reads = queue.slice(0, READ_AHEAD).map(load);
 
   const filter = options.fix === true && queue.length === 1 && queue[0] === '-';

@@ -131,3 +131,54 @@ test('usage errors exit 2', () => {
   assert.equal(r.code, 2);
   assert.match(r.err, /set `url`/);
 });
+
+function repo(files: Record<string, string>): string {
+  const root = tree(files);
+  const git = (...args: string[]) => spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  git('init', '-q');
+  git('add', '-A');
+  return root;
+}
+
+test('--staged checks the index, not the working tree', () => {
+  const root = repo({ 'bad.md': spoofed, 'fixed.md': spoofed, 'untracked-later.txt': 'x\n' });
+  writeFileSync(join(root, 'fixed.md'), 'log in at paypal.com\n');
+  writeFileSync(join(root, 'unstaged.md'), spoofed);
+  const r = run(root, ['check', '--staged']);
+  assert.equal(r.code, 1);
+  assert.match(r.out, /^bad\.md:1:12 /);
+  assert.equal(r.out.split('\n').filter(Boolean).length, 2);
+  assert.match(r.out, /fixed\.md:1:12 /);
+  assert.match(r.err, /2 problems in 2 of 3 files checked/);
+});
+
+test('--staged is clean when the staged content is clean, whatever is on disk', () => {
+  const root = repo({ 'a.md': 'plain\n' });
+  writeFileSync(join(root, 'a.md'), spoofed);
+  assert.equal(run(root, ['check', '--staged']).code, 0);
+});
+
+test('--staged with nothing staged checks nothing and exits 0', () => {
+  const root = tree({ 'a.md': spoofed });
+  spawnSync('git', ['init', '-q'], { cwd: root });
+  const r = run(root, ['check', '--staged']);
+  assert.equal(r.code, 0);
+  assert.match(r.err, /0 files checked, no problems/);
+});
+
+test('--staged outside a repository exits 2, and refuses paths and --fix', () => {
+  const root = tree({ 'a.md': spoofed });
+  const r = run(root, ['check', '--staged']);
+  assert.equal(r.code, 2);
+  assert.match(r.err, /needs git and a git repository/);
+  assert.equal(run(root, ['check', '--staged', 'a.md']).code, 2);
+  assert.equal(run(root, ['check', '--staged', '--fix']).code, 2);
+});
+
+test('--staged works from a subdirectory and reports paths relative to it', () => {
+  const root = repo({ 'sub/a.md': spoofed, 'top.md': spoofed });
+  const r = run(join(root, 'sub'), ['check', '--staged']);
+  assert.equal(r.code, 1);
+  assert.match(r.out, /^a\.md:1:12 /);
+  assert.equal(r.out.split('\n').filter(Boolean).length, 1);
+});
