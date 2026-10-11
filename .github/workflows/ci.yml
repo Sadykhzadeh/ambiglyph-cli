@@ -1,0 +1,30 @@
+# Runs on the GitHub mirror. The forge ignores this directory while
+# .forgejo/workflows exists, so the same gate runs once on each side; keep the
+# steps below in step with .forgejo/workflows/ci.yml.
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - name: the built CLI has to actually start
+        run: node dist/index.js --help
+      - name: the sources pass their own check
+        run: node dist/index.js check index.ts src test scripts .forgejo .github
