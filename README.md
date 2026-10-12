@@ -51,7 +51,9 @@ alone.
 
 Directories are walked including dotfiles such as `.github`, but skipping
 `node_modules` and `.git`. A file with a NUL byte in its first 8000 bytes is
-taken as binary and skipped.
+taken as binary and skipped, unless it starts with a UTF-16 byte order mark:
+UTF-16 files, which Windows tools write and C# and PowerShell accept as
+source, are checked, and `--fix` writes them back in UTF-16.
 
 ### Ignoring
 

@@ -72,6 +72,25 @@ test('directories skip node_modules and .git, globs are expanded here', () => {
   assert.deepEqual(files(['node_modules/**/*.js']), ['node_modules/dep/index.js']);
 });
 
+test('UTF-16 with a byte order mark is checked, and fixed in UTF-16', () => {
+  const text = '\uFEFFok\r\nlet a = b \u202E; // p\u0430ypal\r\n';
+  const le = Buffer.from(text, 'utf16le');
+  const be = Buffer.from(le).swap16();
+  const root = tree({ 'le.cs': le, 'be.ps1': be, 'utf32.bin': Buffer.from([0xff, 0xfe, 0, 0, 0x61, 0, 0, 0]) });
+  const r = run(root, ['check', '--json']);
+  assert.equal(r.code, 1);
+  assert.deepEqual(
+    JSON.parse(r.out).map((f: { file: string, line: number, column: number, rule: string }) => [f.file, f.line, f.column, f.rule]),
+    [['be.ps1', 2, 11, 'invisible'], ['be.ps1', 2, 18, 'mixed-script'], ['le.cs', 2, 11, 'invisible'], ['le.cs', 2, 18, 'mixed-script']],
+  );
+  assert.equal(run(root, ['check', '--fix']).code, 0);
+  const fixed = '\uFEFFok\r\nlet a = b ; // paypal\r\n';
+  assert.deepEqual(readFileSync(join(root, 'le.cs')), Buffer.from(fixed, 'utf16le'));
+  assert.deepEqual(readFileSync(join(root, 'be.ps1')), Buffer.from(fixed, 'utf16le').swap16());
+  const filtered = spawnSync(process.execPath, [cli, 'check', '--fix', '-'], { input: le });
+  assert.deepEqual(filtered.stdout, Buffer.from(fixed, 'utf16le'));
+});
+
 test('a file named twice is checked and fixed once', () => {
   const root = tree({ 'a.md': spoofed });
   const r = run(root, ['check', '.', './a.md', join(root, 'a.md'), 'a.md']);

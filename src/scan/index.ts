@@ -29,6 +29,25 @@ export const FAILED = 2;
 // Git's test for binary content: a NUL byte in the first 8000 bytes.
 const isBinary = (data: Buffer): boolean => data.subarray(0, 8000).includes(0);
 
+type Encoding = 'utf8' | 'utf16le' | 'utf16be';
+
+// UTF-16 is full of NUL bytes, so it would pass for binary, but Windows tools
+// write it and C# and PowerShell compile and run it. It is taken as text when
+// it starts with a byte order mark and holds whole code units, unless it is
+// UTF-32, whose little-endian mark starts the same way.
+function encodingOf(data: Buffer): Encoding {
+  if (data.length % 2) return 'utf8';
+  if (data[0] === 0xff && data[1] === 0xfe && !(data[2] === 0 && data[3] === 0)) return 'utf16le';
+  if (data[0] === 0xfe && data[1] === 0xff) return 'utf16be';
+  return 'utf8';
+}
+
+// The byte order mark is kept in the text, so writing it back restores it.
+const decode = (data: Buffer, encoding: Encoding): string =>
+  encoding === 'utf16be' ? Buffer.from(data).swap16().toString('utf16le') : data.toString(encoding);
+const encode = (text: string, encoding: Encoding): string | Buffer =>
+  encoding === 'utf8' ? text : encoding === 'utf16le' ? Buffer.from(text, 'utf16le') : Buffer.from(text, 'utf16le').swap16();
+
 // Reading is most of the work on a large tree. Keeping a few reads in flight
 // took a 3,100-file scan from 240 to 190 ms; more than this stopped helping.
 const READ_AHEAD = 8;
@@ -104,7 +123,8 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
     }
     // Most files in a repository are pure ASCII, which is settled on the raw
     // bytes without decoding them at all.
-    const binary = isBinary(data);
+    const encoding = encodingOf(data);
+    const binary = encoding === 'utf8' && isBinary(data);
     if (binary || isAscii(data)) {
       if (filter) process.stdout.write(data);
       if (!binary) checked++;
@@ -112,19 +132,19 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
     }
     checked++;
     const name = file === '-' ? '<stdin>' : file;
-    const text = data.toString('utf8');
+    const text = decode(data, encoding);
     const findings = withoutIgnored(text, detect(text));
     let output = text;
     if (options.fix && findings.length) {
       output = applyFixes(text, findings);
       if (!filter && output !== text) {
-        try { await writeFile(file, output); } catch (e) {
+        try { await writeFile(file, encode(output, encoding)); } catch (e) {
           fail(`${file}: could not write the fixes: ${(e as NodeJS.ErrnoException).code ?? (e as Error).message}`);
           for (const f of findings) f.fixed = false;
         }
       }
     }
-    if (filter) process.stdout.write(output);
+    if (filter) process.stdout.write(encode(output, encoding));
     if (!findings.length) continue;
     problems += findings.length;
     withProblems++;
