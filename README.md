@@ -88,8 +88,8 @@ ambiglyph check --fix - < draft.md > clean.md
 ### In CI and git hooks
 
 The exit status is 0 when nothing is found, 1 when something is, and 2 when
-the check could not run: a missing file, a glob that matches nothing, a file
-`--fix` could not write, or a bad option. With `--fix`, only what is left
+the check could not run: a missing file, a directory that cannot be read, a
+glob that matches nothing, a file `--fix` could not write, or a bad option. With `--fix`, only what is left
 unfixed counts.
 
 `--json` prints all findings as one array. Each has `file`, `line`, `column`,

@@ -1,7 +1,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -77,6 +77,20 @@ test('binary files are skipped', () => {
   const r = run(root, ['check']);
   assert.equal(r.code, 0);
   assert.match(r.err, /1 file checked/);
+});
+
+// Permissions do not keep root out, nor anyone on Windows.
+test('a directory that cannot be read is reported, the rest is checked, and it exits 2', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, () => {
+  const root = tree({ 'locked/a.md': spoofed, 'open/b.md': spoofed });
+  chmodSync(join(root, 'locked'), 0o000);
+  try {
+    const r = run(root, ['check']);
+    assert.equal(r.code, 2);
+    assert.match(r.err, /^ambiglyph: locked: EACCES$/m);
+    assert.match(r.out, /^open[\\/]b\.md:1:12 /);
+  } finally {
+    chmodSync(join(root, 'locked'), 0o755);
+  }
 });
 
 test('a missing path or an empty glob exits 2, even with findings elsewhere', () => {

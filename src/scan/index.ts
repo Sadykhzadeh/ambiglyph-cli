@@ -60,7 +60,7 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
       staged = stagedFiles();
       files.push(...staged.keys());
     } else for (const arg of args) {
-      try { files.push(...expand(arg)); } catch (e) {
+      try { files.push(...expand(arg, fail)); } catch (e) {
         if (e instanceof InputError) fail(e.message); else throw e;
       }
     }
