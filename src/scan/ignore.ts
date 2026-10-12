@@ -1,10 +1,13 @@
 import { relative, resolve, sep } from 'path';
 import type { Finding } from '../engine/detect.js';
 
-// ** crosses directories, * and ? stay inside one name. A pattern with no
-// slash matches a name at any depth, as in .gitignore.
+// ** crosses directories, * and ? stay inside one name. As in .gitignore, a
+// pattern with no slash other than a trailing one matches a name at any
+// depth, a match on a directory takes everything under it, and a trailing
+// slash matches directories only.
 function globToRegExp(glob: string): RegExp {
-  const pattern = glob.replace(/^\.\//, '');
+  const dirOnly = glob.endsWith('/');
+  const pattern = glob.replace(/^\.\//, '').replace(/\/$/, '');
   let source = '';
   for (let i = 0; i < pattern.length; i++) {
     const c = pattern[i];
@@ -15,7 +18,7 @@ function globToRegExp(glob: string): RegExp {
     else if (c === '?') source += '[^/]';
     else source += c.replace(/[.+^${}()|[\]\\]/g, '\\$&');
   }
-  return new RegExp(`^${pattern.includes('/') ? '' : '(?:.*/)?'}${source}$`);
+  return new RegExp(`^${pattern.includes('/') ? '' : '(?:.*/)?'}${source}${dirOnly ? '/' : '(?:/|$)'}`);
 }
 
 // Whether a file, taken relative to the working directory, matches any glob.

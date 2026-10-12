@@ -238,6 +238,11 @@ test('--ignore skips the files a glob matches, and can be repeated', () => {
   assert.deepEqual(files(['--ignore', '*.md']), ['src/d.txt', 'vendor/lib/c.txt']);
   assert.deepEqual(files(['--ignore', 'vendor/**', '--ignore', 'docs/*.md']), ['a.md', 'src/d.txt']);
   assert.deepEqual(files(['--ignore', '**/*.txt', 'src', 'a.md']), ['a.md']);
+  assert.deepEqual(files(['--ignore', 'vendor']), ['a.md', 'docs/b.md', 'src/d.txt']);
+  assert.deepEqual(files(['--ignore', 'lib/']), ['a.md', 'docs/b.md', 'src/d.txt']);
+  assert.deepEqual(files(['--ignore', './docs']), ['a.md', 'src/d.txt', 'vendor/lib/c.txt']);
+  assert.deepEqual(files(['--ignore', 'a.md/']), ['a.md', 'docs/b.md', 'src/d.txt', 'vendor/lib/c.txt']);
+  assert.deepEqual(files(['--ignore', 'src/d']), ['a.md', 'docs/b.md', 'src/d.txt', 'vendor/lib/c.txt']);
   const all = run(root, ['check', '--ignore', '**']);
   assert.equal(all.code, 0);
   assert.match(all.err, /0 files checked, no problems/);

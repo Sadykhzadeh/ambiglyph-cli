@@ -57,11 +57,13 @@ taken as binary and skipped.
 
 `--ignore <glob>` skips the files a glob matches, and can be repeated. Globs
 are read against paths relative to the working directory; `*` and `?` stay
-inside one name, `**` crosses directories, and a pattern without a slash
-matches a name at any depth, as in `.gitignore`.
+inside one name and `**` crosses directories. As in `.gitignore`, a pattern
+without a slash (a trailing one aside) matches a name at any depth, a pattern
+that matches a directory skips everything in it, and a trailing slash matches
+only directories.
 
 ```sh
-ambiglyph check --ignore 'vendor/**' --ignore '*.min.js'
+ambiglyph check --ignore vendor --ignore '*.min.js'
 ```
 
 For a single line, write `ambiglyph-ignore` in a comment on it, or
