@@ -244,6 +244,8 @@ test('--sarif prints a SARIF 2.1.0 log with one result per finding', () => {
   assert.equal(loc.artifactLocation.uri, 'docs/a%20b.md');
   assert.deepEqual(loc.region, { startLine: 2, startColumn: 12 });
   assert.equal(r.err, '');
+  const absolute = JSON.parse(run(root, ['check', '--sarif', join(root, 'docs')]).out);
+  assert.equal(absolute.runs[0].results[0].locations[0].physicalLocation.artifactLocation.uri, 'docs/a%20b.md');
 });
 
 test('--sarif on a clean tree is a log with no results, and --json cannot join it', () => {
