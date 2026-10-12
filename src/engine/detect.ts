@@ -124,8 +124,9 @@ function twinIn(script: string, key: string, like: string): string | undefined {
 
 // Default-ignorable and bidi formatting characters that have no business
 // inside ordinary text: they make two different strings render the same, or
-// reorder what is displayed (CVE-2021-42574, "Trojan Source"). Joiners and
-// variation selectors are left alone, as emoji and several scripts need them.
+// reorder what is displayed (CVE-2021-42574, "Trojan Source"). Variation
+// selectors are left alone, as emoji and several scripts need them, and so
+// are joiners, except where JOINER_NAMES says.
 const INVISIBLE_NAMES: Record<number, string> = {
   0x00ad: 'SOFT HYPHEN',
   0x115f: 'HANGUL CHOSEONG FILLER',
@@ -151,6 +152,14 @@ const INVISIBLE_NAMES: Record<number, string> = {
   0xffa0: 'HALFWIDTH HANGUL FILLER',
 };
 const BLACK_FLAG = '\u{1F3F4}';
+// Joiners shape Arabic and Indic text and build emoji sequences, but the
+// alphabets homoglyphs imitate have no use for them: next to a Latin, Greek or
+// Cyrillic letter or digit, one only makes a word differ from its lookalike.
+const JOINER_NAMES: Record<number, string> = {
+  0x200c: 'ZERO WIDTH NON-JOINER',
+  0x200d: 'ZERO WIDTH JOINER',
+};
+const ALPHABETS = new Set(['Latin', 'Greek', 'Cyrillic']);
 
 const NON_ASCII = /[\x80-\uFFFF]/g;
 // Words are runs of letters, marks and digits, minus emoji such as U+2139 and
@@ -159,6 +168,16 @@ const WORD_CHAR = /^(?![\p{Extended_Pictographic}\u115F\u1160\u3164\uFFA0])[\p{L
 
 const isAsciiWordChar = (c: number): boolean =>
   (c >= 0x30 && c <= 0x39) || (c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a);
+
+// Whether the UTF-16 unit at `index` is a BMP letter or digit of ALPHABETS.
+function isAlphabetic(text: string, index: number): boolean {
+  if (index < 0 || index >= text.length) return false;
+  const c = text.charCodeAt(index);
+  if (c < 0x80) return isAsciiWordChar(c);
+  if (c >= 0xd800 && c <= 0xdfff) return false;
+  const info = infoOf(c);
+  return info.word && ALPHABETS.has(info.script);
+}
 
 function describe(s: Suspect): string {
   return `${s.char} ${s.codePoint}${s.script ? ` (${s.script})` : ''}`;
@@ -254,6 +273,7 @@ function checkWord(text: string, start: number, end: number, out: Finding[]): vo
 function checkInvisible(text: string, index: number, cp: number, out: Finding[]): number {
   let next = index + (cp > 0xffff ? 2 : 1);
   let name = INVISIBLE_NAMES[cp];
+  if ((cp === 0x200c || cp === 0x200d) && (isAlphabetic(text, index - 1) || isAlphabetic(text, next))) name = JOINER_NAMES[cp];
   let message: string;
   if (name !== undefined) {
     // A byte order mark is only invisible noise when it is not the first character.

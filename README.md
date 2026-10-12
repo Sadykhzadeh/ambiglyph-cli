@@ -44,7 +44,7 @@ go to standard output and the summary to standard error.
 | --- | --- |
 | `mixed-script` | A word mixes scripts and a letter of the minority script passes for one of the majority: the Cyrillic "а" in "pаypal", or a Latin "p" in a Russian word. A mix with nothing to mistake, such as "Δt", is fine. |
 | `confusable` | A word holds a compatibility, mathematical or ligature form that Unicode restricts in identifiers: "ｐａｙ", "𝐩𝐚𝐲", "ﬁle". |
-| `invisible` | Zero-width characters, the Hangul fillers, bidi controls that can reorder a line ("Trojan Source"), and tag characters, whose hidden text is decoded and shown. |
+| `invisible` | Zero-width characters, the Hangul fillers, bidi controls that can reorder a line ("Trojan Source"), and tag characters, whose hidden text is decoded and shown. Zero-width joiners and non-joiners only next to a Latin, Greek or Cyrillic letter or digit, since Arabic, Indic scripts and emoji need them. |
 
 Ordinary text in any one script, Azerbaijani "ə" and "ı" included, is left
 alone.

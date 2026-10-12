@@ -103,6 +103,17 @@ test('invisible and bidi characters', () => {
   assert.equal(detect('a\u3164b')[0].text, 'HANGUL FILLER');
 });
 
+test('joiners are reported next to Latin, Greek and Cyrillic, not where scripts need them', () => {
+  const [zwj] = detect('pay\u200Dpal');
+  assert.deepEqual([zwj.rule, zwj.column, zwj.text, zwj.suggestion], ['invisible', 4, 'ZERO WIDTH JOINER', '']);
+  assert.equal(detect('Auf\u200Clage')[0].text, 'ZERO WIDTH NON-JOINER');
+  assert.equal(detect('\u200Dpay \u0430\u200D')[1].column, 7);
+  // Persian, Devanagari and an emoji family.
+  assert.deepEqual(detect('\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645'), []);
+  assert.deepEqual(detect('\u0915\u094D\u200D\u0937'), []);
+  assert.deepEqual(detect('\u{1F468}\u200D\u{1F469}\u200D\u{1F467} \u200D'), []);
+});
+
 test('a byte order mark is only reported away from the start', () => {
   assert.deepEqual(detect('\uFEFFhello'), []);
   assert.equal(detect('hel\uFEFFlo')[0].column, 4);

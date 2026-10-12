@@ -13,7 +13,7 @@ test('every fixable finding is applied and marked', () => {
 });
 
 test('invisible characters are removed, tag runs whole', () => {
-  assert.equal(fix('pay\u200Bpal a\u202Eb ok\u{E0068}\u{E0069}!'), 'paypal ab ok!');
+  assert.equal(fix('pay\u200Bpal a\u202Eb ok\u{E0068}\u{E0069}! pay\u200Dpal'), 'paypal ab ok! paypal');
 });
 
 test('a finding without a suggestion is left as it is', () => {
