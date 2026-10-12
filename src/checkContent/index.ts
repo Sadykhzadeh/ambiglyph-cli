@@ -29,7 +29,7 @@ export async function checkContent(path: string, serverWordPerRequest: number): 
     if (!fileExists("./.ambi")) return console.error("🤨 Hey, you did not log in to server...");
     // createWriteStream truncates an existing file, so the unlink-then-write
     // that used to precede it was doing nothing.
-    const outputPath = `${process.cwd()}/${path}.remove`;
+    const outputPath = `${path}.remove`;
     const streamData = fs.createWriteStream(outputPath);
     const token = fs.readFileSync("./.ambi", "utf8").trim();
     console.log("⏳Loading...");

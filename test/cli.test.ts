@@ -1,10 +1,13 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 const cli = fileURLToPath(new URL('../index.js', import.meta.url));
 
@@ -173,6 +176,27 @@ test('usage errors exit 2', () => {
   const r = run(root, ['check', '--server', 'a.txt']);
   assert.equal(r.code, 2);
   assert.match(r.err, /set `url`/);
+});
+
+test('check --server writes <path>.remove next to the file, even from elsewhere', async () => {
+  // Stands in for an Ambiglyph server that finds nothing.
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ text: JSON.parse(body).text, haveDetections: false, candidates: [] }));
+    });
+  });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const root = tree({ 'work/.ambi': 'token', 'data/a.txt': 'hello there world\n' });
+  try {
+    const env = { ...process.env, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}` };
+    await promisify(execFile)(process.execPath, [cli, 'check', '--server', join(root, 'data', 'a.txt')], { cwd: join(root, 'work'), env });
+  } finally {
+    server.close();
+  }
+  assert.equal(readFileSync(join(root, 'data', 'a.txt.remove'), 'utf8'), 'hello there world\n');
 });
 
 function repo(files: Record<string, string>): string {
