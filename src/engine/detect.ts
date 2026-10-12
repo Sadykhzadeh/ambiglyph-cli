@@ -166,6 +166,10 @@ const NON_ASCII = /[\x80-\uFFFF]/g;
 // the Hangul fillers, which are letters by category but render as nothing.
 const WORD_CHAR = /^(?![\p{Extended_Pictographic}\u115F\u1160\u3164\uFFA0])[\p{L}\p{M}\p{N}]/u;
 
+// Chinese, Japanese and Korean text writes letters and digits fullwidth, so in
+// a word that holds one of their characters a fullwidth form imitates nothing.
+const CJK = /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}\p{sc=Bopomofo}]/u;
+
 const isAsciiWordChar = (c: number): boolean =>
   (c >= 0x30 && c <= 0x39) || (c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a);
 
@@ -219,12 +223,14 @@ function checkWord(text: string, start: number, end: number, out: Finding[]): vo
 
   let suspects: Suspect[] | undefined;
   let mixed = false;
+  let cjk: boolean | undefined;
   for (let j = 0; j < infos.length; j++) {
     const info = infos[j];
     const foreign = info.script !== '' && info.script !== base;
     if (!info.restricted && !(foreign && (info.to !== undefined || base !== 'Latin'))) continue;
     const i = offsets[j];
     const cp = word.codePointAt(i)!;
+    if (cp >= 0xff01 && cp <= 0xff5e && (cjk ??= CJK.test(word))) continue;
     const ch = String.fromCodePoint(cp);
     let replacement: string | undefined;
     if (base === 'Latin' || base === '') replacement = info.to || undefined;

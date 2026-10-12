@@ -68,6 +68,17 @@ test('fullwidth, mathematical and ligature forms', () => {
   assert.equal(detect('\uFF4Dore')[0].suggestion, 'more');
 });
 
+test('fullwidth forms are ordinary inside Chinese, Japanese and Korean words', () => {
+  // "the first", "the year 2026", "ABC Inc.", "IT is", "the PC" in Korean.
+  for (const word of ['\u7B2C\uFF11\u56DE', '\uFF12\uFF10\uFF12\uFF16\u5E74', '\uFF21\uFF22\uFF23\u682A\u5F0F\u4F1A\u793E', '\uFF29\uFF34\u306F', '\uFF30\uFF23\uB97C']) {
+    assert.deepEqual(detect(word), [], word);
+  }
+  // On its own it is still a lookalike, and other lookalikes still count.
+  assert.equal(detect('\uFF50\uFF41\uFF59 \u306F')[0].suggestion, 'pay');
+  assert.equal(detect('p\u0430ypal\u793E')[0].rule, 'mixed-script');
+  assert.equal(detect('\uFF41\uFB01\u793E')[0].text, '\uFF41\uFB01\u793E');
+});
+
 test('a word ends at punctuation and underscores', () => {
   const [f, ...rest] = detect('user_n\u0430me');
   assert.equal(rest.length, 0);
