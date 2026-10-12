@@ -33,7 +33,11 @@ export async function checkContent(path: string, serverWordPerRequest: number): 
     const streamData = fs.createWriteStream(outputPath);
     const token = fs.readFileSync("./.ambi", "utf8").trim();
     console.log("⏳Loading...");
+    // A paragraph was cut into chunks at single spaces, which go back between them.
+    let inParagraph = false;
     for (const arr of resOfCrop) {
+      if (arr != "\n" && inParagraph) streamData.write(" ");
+      inParagraph = arr != "\n";
       try {
         if (arr != "\n" && isNotEqual(arr, [""])) {
           const postRequest: ServerAnswer = await got.post(`${process.env.url}/check`, {
@@ -72,7 +76,11 @@ export async function checkContent(path: string, serverWordPerRequest: number): 
           }
           streamData.write(futureText);
         } else if (arr == "\n") streamData.write("\n");
-      } catch { console.error(process.env.errorText); }
+      } catch {
+        console.error(process.env.errorText);
+        // The words are kept as they were rather than left out of the file.
+        if (arr != "\n") streamData.write(arr.join(" "));
+      }
     }
     // close() returns immediately, so the old code could announce the file
     // before the queued writes had actually reached it.

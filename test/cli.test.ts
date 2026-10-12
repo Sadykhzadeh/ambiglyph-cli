@@ -178,25 +178,39 @@ test('usage errors exit 2', () => {
   assert.match(r.err, /set `url`/);
 });
 
-test('check --server writes <path>.remove next to the file, even from elsewhere', async () => {
-  // Stands in for an Ambiglyph server that finds nothing.
+// Runs `check --server` against a stand-in for an Ambiglyph server that finds
+// nothing, and answers 500 to any text with "fail" in it.
+async function checkOnServer(cwd: string, file: string): Promise<void> {
   const server = createServer((req, res) => {
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
+      const { text } = JSON.parse(body);
+      res.statusCode = text.includes('fail') ? 500 : 200;
       res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify({ text: JSON.parse(body).text, haveDetections: false, candidates: [] }));
+      res.end(JSON.stringify({ text, haveDetections: false, candidates: [] }));
     });
   });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-  const root = tree({ 'work/.ambi': 'token', 'data/a.txt': 'hello there world\n' });
   try {
-    const env = { ...process.env, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}` };
-    await promisify(execFile)(process.execPath, [cli, 'check', '--server', join(root, 'data', 'a.txt')], { cwd: join(root, 'work'), env });
+    const env = { ...process.env, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, errorText: 'request failed' };
+    await promisify(execFile)(process.execPath, [cli, 'check', '--server', file], { cwd, env });
   } finally {
     server.close();
   }
+}
+
+test('check --server writes <path>.remove next to the file, even from elsewhere', async () => {
+  const root = tree({ 'work/.ambi': 'token', 'data/a.txt': 'hello there world\n' });
+  await checkOnServer(join(root, 'work'), join(root, 'data', 'a.txt'));
   assert.equal(readFileSync(join(root, 'data', 'a.txt.remove'), 'utf8'), 'hello there world\n');
+});
+
+test('check --server keeps every word, space and line it does not replace', async () => {
+  const text = 'one two three four five  six seven\n\nfail on this chunk, keep it\nlast line ';
+  const root = tree({ '.ambi': 'token', 'a.txt': text });
+  await checkOnServer(root, 'a.txt');
+  assert.equal(readFileSync(join(root, 'a.txt.remove'), 'utf8'), text);
 });
 
 function repo(files: Record<string, string>): string {

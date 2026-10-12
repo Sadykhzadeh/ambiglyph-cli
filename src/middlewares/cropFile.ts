@@ -10,7 +10,6 @@ function cropPar(par: string, limit: number): Array<Array<string> | "\n"> {
   const words = par.split(" ");
   for (let i = 0; i < words.length; i += limit)
     returnArr.push(words.slice(i, i + limit));
-  returnArr.push("\n");
   return returnArr;
 }
 
@@ -18,7 +17,11 @@ export function cropFile(path: string, limit: number): Array<Array<string> | "\n
   const data = readFileSync(path, { encoding: 'utf8', flag: 'r' });
   const paragraphArr = data.split("\n");
   const resultOfCropFile: Array<Array<string> | "\n"> = [];
-  for (const parEl of paragraphArr)
+  // "\n" goes between paragraphs, so empty lines and the lack of a final
+  // newline survive.
+  paragraphArr.forEach((parEl, i) => {
+    if (i) resultOfCropFile.push("\n");
     resultOfCropFile.push(...cropPar(parEl, limit));
+  });
   return resultOfCropFile;
 }
