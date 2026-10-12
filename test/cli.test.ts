@@ -72,6 +72,16 @@ test('directories skip node_modules and .git, globs are expanded here', () => {
   assert.deepEqual(files(['node_modules/**/*.js']), ['node_modules/dep/index.js']);
 });
 
+test('a file named twice is checked and fixed once', () => {
+  const root = tree({ 'a.md': spoofed });
+  const r = run(root, ['check', '.', './a.md', join(root, 'a.md'), 'a.md']);
+  assert.equal(r.code, 1);
+  assert.equal(r.out.split('\n').filter(Boolean).length, 1);
+  assert.match(r.err, /1 problem in 1 of 1 file checked/);
+  const fixed = run(root, ['check', '--fix', 'a.md', './a.md']);
+  assert.match(fixed.err, /1 problem in 1 of 1 file checked, 1 fixed/);
+});
+
 test('binary files are skipped', () => {
   const root = tree({ 'img.png': Buffer.from([0x89, 0x50, 0x00, 0xd0, 0xb0]), 'a.txt': 'ok\n' });
   const r = run(root, ['check']);

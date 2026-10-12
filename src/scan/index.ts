@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import { isAscii } from 'buffer';
+import { resolve } from 'path';
 import { detect, type Finding } from '../engine/detect.js';
 import { applyFixes } from '../engine/fix.js';
 import { expand, InputError } from './files.js';
@@ -71,7 +72,14 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
   // Up to READ_AHEAD files are being read while one is checked, and results
   // are still taken in order, so the output does not depend on timing.
   const ignored = options.ignore?.length ? ignoreMatcher(options.ignore) : undefined;
-  const queue = [...new Set(files)].filter(file => file === '-' || !ignored?.(file));
+  // A file named twice, as `. ./a.md` or `a.md /abs/a.md` do, is checked once.
+  const seen = new Set<string>();
+  const queue = files.filter(file => {
+    const key = file === '-' ? file : resolve(file);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return file === '-' || !ignored?.(file);
+  });
   const load = (file: string): Promise<Buffer | Error> =>
     (options.staged ? Promise.resolve(staged.get(file)!) : file === '-' ? Promise.resolve().then(() => readFileSync(0)) : readFile(file)).catch((e: Error) => e);
   const reads = queue.slice(0, READ_AHEAD).map(load);
