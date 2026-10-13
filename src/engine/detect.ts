@@ -161,10 +161,13 @@ const JOINER_NAMES: Record<number, string> = {
 };
 const ALPHABETS = new Set(['Latin', 'Greek', 'Cyrillic']);
 
+const isSelector = (cp: number): boolean => (cp >= 0xfe00 && cp <= 0xfe0f) || (cp >= 0xe0100 && cp <= 0xe01ef);
+
 const NON_ASCII = /[\x80-\uFFFF]/g;
-// Words are runs of letters, marks and digits, minus emoji such as U+2139 and
-// the Hangul fillers, which are letters by category but render as nothing.
-const WORD_CHAR = /^(?![\p{Extended_Pictographic}\u115F\u1160\u3164\uFFA0])[\p{L}\p{M}\p{N}]/u;
+// Words are runs of letters, marks and digits, minus emoji such as U+2139,
+// the Hangul fillers, which are letters by category but render as nothing,
+// and the variation selectors, which are marks but are checked on their own.
+const WORD_CHAR = /^(?![\p{Extended_Pictographic}\u115F\u1160\u3164\uFFA0]|[\uFE00-\uFE0F]|[\u{E0100}-\u{E01EF}])[\p{L}\p{M}\p{N}]/u;
 
 // Chinese, Japanese and Korean text writes letters and digits fullwidth, so in
 // a word that holds one of their characters, or next to one, a fullwidth form
@@ -298,7 +301,8 @@ function checkWord(text: string, start: number, end: number, out: Finding[]): vo
 }
 
 // Reports the invisible character at `index`, if it is one, and returns where
-// the scan should go on; a run of tag characters is reported as a whole.
+// the scan should go on; a run of tag characters is reported as a whole, and
+// so is a run of variation selectors, but for its first.
 function checkInvisible(text: string, index: number, cp: number, out: Finding[]): number {
   let next = index + (cp > 0xffff ? 2 : 1);
   let name = INVISIBLE_NAMES[cp];
@@ -322,6 +326,25 @@ function checkInvisible(text: string, index: number, cp: number, out: Finding[])
     const shown = String.fromCharCode(...hidden.slice(0, 40)) + (hidden.length > 40 ? '...' : '');
     name = 'TAG CHARACTERS';
     message = `${(next - index) / 2} invisible tag characters${hidden.length ? ` spelling ${JSON.stringify(shown)}` : ''}`;
+  } else if (isSelector(cp)) {
+    // A character takes one variation selector at most, as emoji, keycaps and
+    // Han variants do. Any more change nothing on screen, yet each can carry a
+    // byte, which is how data is smuggled inside an emoji or a word. The same
+    // selector repeated, as some keyboards double U+FE0F, carries nothing.
+    let end = next;
+    let count = 0;
+    let repeated = true;
+    for (let c = text.codePointAt(end) ?? 0; isSelector(c); c = text.codePointAt(end) ?? 0) {
+      end += c > 0xffff ? 2 : 1;
+      count++;
+      repeated &&= c === cp;
+    }
+    if (repeated) return end;
+    index = next;
+    cp = text.codePointAt(index)!;
+    next = end;
+    name = 'VARIATION SELECTORS';
+    message = `${count} variation selector${count === 1 ? '' : 's'} after another one, which nothing displays`;
   } else return next;
   out.push({
     rule: 'invisible',

@@ -48,7 +48,7 @@ go to standard output and the summary to standard error.
 | --- | --- |
 | `mixed-script` | A word mixes scripts and a letter of the minority script passes for one of the majority: the Cyrillic "а" in "pаypal", or a Latin "p" in a Russian word. A mix with nothing to mistake, such as "Δt", is fine. |
 | `confusable` | A word holds a compatibility, mathematical or ligature form that Unicode restricts in identifiers: "ｐａｙ", "𝐩𝐚𝐲", "ﬁle". Fullwidth letters and digits in a word with Chinese, Japanese or Korean characters, such as "第１回", or set off from them only by punctuation, as in "（１）概要", are how those languages write them and are left alone. |
-| `invisible` | Zero-width characters, the Hangul fillers, bidi controls that can reorder a line ("Trojan Source"), and tag characters, whose hidden text is decoded and shown. Zero-width joiners and non-joiners only next to a Latin, Greek or Cyrillic letter or digit, since Arabic, Indic scripts and emoji need them. |
+| `invisible` | Zero-width characters, the Hangul fillers, bidi controls that can reorder a line ("Trojan Source"), tag characters, whose hidden text is decoded and shown, and variation selectors after the first in a run, unless they only repeat it: a character takes one, and the rest show nothing but can each carry a byte of hidden data. Zero-width joiners and non-joiners only next to a Latin, Greek or Cyrillic letter or digit, since Arabic, Indic scripts and emoji need them. |
 
 Ordinary text in any one script, Azerbaijani "ə" and "ı" included, is left
 alone.

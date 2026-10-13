@@ -16,6 +16,10 @@ test('invisible characters are removed, tag runs whole', () => {
   assert.equal(fix('pay\u200Bpal a\u202Eb ok\u{E0068}\u{E0069}! pay\u200Dpal'), 'paypal ab ok! paypal');
 });
 
+test('a run of variation selectors is cut down to its first', () => {
+  assert.equal(fix('\u2764\uFE0F\uFE01 and a\uFE00\u{E0158}\u{E0159}!'), '\u2764\uFE0F and a\uFE00!');
+});
+
 test('a finding without a suggestion is left as it is', () => {
   const text = 'Gr\u03B5ece and p\u0430y';
   const findings = detect(text);

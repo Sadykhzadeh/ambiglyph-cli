@@ -149,6 +149,22 @@ test('tag characters are decoded, except inside a flag', () => {
   assert.deepEqual(detect(`flag ${england} here`), []);
 });
 
+test('variation selectors after the first in a run are reported', () => {
+  // Bytes hidden a selector apiece after a letter, the way data is smuggled
+  // inside an emoji or a word.
+  const [f, ...rest] = detect('ok\uFE00\uFE01\u{E0100}\u{E0158} ok');
+  assert.equal(rest.length, 0);
+  assert.deepEqual([f.rule, f.column, f.text, f.suggestion], ['invisible', 4, 'VARIATION SELECTORS', '']);
+  assert.equal(f.suspects[0].char, '\uFE01\u{E0100}\u{E0158}');
+  assert.equal(f.message, '3 variation selectors after another one, which nothing displays');
+  assert.equal(detect('a\uFE00\uFE01')[0].message, '1 variation selector after another one, which nothing displays');
+  // One after a character is how emoji, keycaps and Han variants are written,
+  // and the same one twice over carries nothing.
+  assert.deepEqual(detect('\u2764\uFE0F 1\uFE0F\u20E3 \u845B\u{E0100}\u98FE \u{1F441}\uFE0F\u200D\u{1F5E8}\uFE0F \u{1F6E0}\uFE0F\uFE0F'), []);
+  // A selector does not hide a homoglyph by splitting its word.
+  assert.equal(detect('p\u0430\uFE0Fypal')[0].rule, 'mixed-script');
+});
+
 test('emoji and symbols are not words', () => {
   assert.deepEqual(detect('\u2139\uFE0F note \u2014 \u201Cquoted\u201D \u00A9 2026 \u00B5s'), []);
 });
