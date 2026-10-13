@@ -79,6 +79,18 @@ test('fullwidth forms are ordinary inside Chinese, Japanese and Korean words', (
   assert.equal(detect('\uFF41\uFB01\u793E')[0].text, '\uFF41\uFB01\u793E');
 });
 
+test('fullwidth forms set off from Chinese, Japanese or Korean by punctuation are ordinary too', () => {
+  // "(1) Overview", "Overview (1)", "'ABC' is", "the 1st, 2nd and 3rd",
+  // "1. Overview", and a Han character outside the BMP.
+  for (const text of ['\uFF08\uFF11\uFF09\u6982\u8981', '\u6982\u8981\uFF08\uFF11\uFF09', '\u300C\uFF21\uFF22\uFF23\u300D\u306F', '\u7B2C\uFF11\u3001\uFF12\u3001\uFF13\u56DE', '\uFF11\uFF0E\u6982\u8981', '\u{20B9F}\uFF08\uFF11\uFF09']) {
+    assert.deepEqual(detect(text), [], text);
+  }
+  // With no CJK text beyond the punctuation, it is still a lookalike.
+  assert.equal(detect('\uFF08\uFF11\uFF09')[0]?.suggestion, '1');
+  assert.equal(detect('\uFF08\uFF50\uFF41\uFF59\uFF09 \u306F')[0]?.suggestion, 'pay');
+  assert.equal(detect(`\uFF50\uFF41\uFF59${'\uFF0C'.repeat(40)}\u306F`)[0]?.suggestion, 'pay');
+});
+
 test('a word ends at punctuation and underscores', () => {
   const [f, ...rest] = detect('user_n\u0430me');
   assert.equal(rest.length, 0);

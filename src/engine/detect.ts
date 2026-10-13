@@ -167,8 +167,31 @@ const NON_ASCII = /[\x80-\uFFFF]/g;
 const WORD_CHAR = /^(?![\p{Extended_Pictographic}\u115F\u1160\u3164\uFFA0])[\p{L}\p{M}\p{N}]/u;
 
 // Chinese, Japanese and Korean text writes letters and digits fullwidth, so in
-// a word that holds one of their characters a fullwidth form imitates nothing.
+// a word that holds one of their characters, or next to one, a fullwidth form
+// imitates nothing.
 const CJK = /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}\p{sc=Bopomofo}]/u;
+const CJK_FIRST = new RegExp(`^${CJK.source}`, 'u');
+// Ideographic punctuation and the fullwidth forms, which can set a fullwidth
+// word apart from the CJK text it belongs to, as the parentheses of a
+// fullwidth "(1)" do before a heading or the commas of "1, 2, 3" in a list.
+const CJK_GAP = /[\u3000-\u303F\u30FB\uFF01-\uFF65]/;
+// How far either way to look for that text, which keeps a long fullwidth run
+// with none in it from being walked again for each of its words.
+const CJK_REACH = 32;
+
+// Whether CJK text lies on either side of start..end, across nothing but
+// CJK_GAP characters.
+function cjkAround(text: string, start: number, end: number): boolean {
+  let i = start - 1;
+  while (i >= 0 && i >= start - CJK_REACH && CJK_GAP.test(text[i])) i--;
+  if (i >= 0) {
+    const c = text.charCodeAt(i);
+    if (CJK_FIRST.test(text.slice(c >= 0xdc00 && c <= 0xdfff && i > 0 ? i - 1 : i, i + 1))) return true;
+  }
+  i = end;
+  while (i < text.length && i < end + CJK_REACH && CJK_GAP.test(text[i])) i++;
+  return CJK_FIRST.test(text.slice(i, i + 2));
+}
 
 const isAsciiWordChar = (c: number): boolean =>
   (c >= 0x30 && c <= 0x39) || (c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a);
@@ -230,7 +253,7 @@ function checkWord(text: string, start: number, end: number, out: Finding[]): vo
     if (!info.restricted && !(foreign && (info.to !== undefined || base !== 'Latin'))) continue;
     const i = offsets[j];
     const cp = word.codePointAt(i)!;
-    if (cp >= 0xff01 && cp <= 0xff5e && (cjk ??= CJK.test(word))) continue;
+    if (cp >= 0xff01 && cp <= 0xff5e && (cjk ??= CJK.test(word) || cjkAround(text, start, end))) continue;
     const ch = String.fromCodePoint(cp);
     let replacement: string | undefined;
     if (base === 'Latin' || base === '') replacement = info.to || undefined;
