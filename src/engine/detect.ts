@@ -335,6 +335,50 @@ function checkWord(text: string, start: number, end: number, out: Finding[]): vo
   });
 }
 
+// Whether the character at `at` is a dot, slash, underscore or @ with an ASCII
+// letter beyond it, `step` further on: what joins the parts of a domain name,
+// a URL, an address or an identifier. Not a hyphen, which Slavic languages
+// put between a Latin acronym and its case ending, as in Serbian "API-je".
+function linkedToLatin(text: string, at: number, step: 1 | -1): boolean {
+  const c = text.charCodeAt(at);
+  if (c !== 0x2e && c !== 0x2f && c !== 0x5f && c !== 0x40) return false;
+  const d = text.charCodeAt(at + step) | 0x20;
+  return d >= 0x61 && d <= 0x7a;
+}
+
+// A word all in one script but Latin, every letter of which passes for a Latin
+// one, as Cyrillic "apple" does in a link to it. Reported only where it is
+// linked to Latin text, since on its own it is an ordinary word of its script,
+// and only from two letters up, which spares a lone Greek letter in a name
+// such as "rho_water".
+function checkWhole(text: string, start: number, end: number, script: string, out: Finding[]): void {
+  const word = text.slice(start, end);
+  const suspects: Suspect[] = [];
+  let suggestion = '';
+  for (let i = 0; i < word.length;) {
+    const cp = word.codePointAt(i)!;
+    const ch = String.fromCodePoint(cp);
+    const info = cp < 0x80 ? ASCII_DIGIT : infoOf(cp);
+    if (info.script === '') suggestion += ch;
+    else if (info.to && /^[A-Za-z]+$/.test(info.to)) {
+      suspects.push({ char: ch, codePoint: hex(cp), script: info.script, index: start + i, replacement: info.to });
+      suggestion += info.to;
+    } else return;
+    i += ch.length;
+  }
+  if (suspects.length < 2) return;
+  out.push({
+    rule: 'mixed-script',
+    line: 0,
+    column: 0,
+    index: suspects[0].index,
+    text: word,
+    message: `"${word}" is all ${script}, next to Latin: ${listed(suspects)}`,
+    suspects,
+    suggestion,
+  });
+}
+
 // Reports the invisible character at `index`, if it is one, and returns where
 // the scan should go on; a run of tag characters is reported as a whole, and
 // so is a run of variation selectors, but for its first.
@@ -459,6 +503,9 @@ export function detect(text: string): Finding[] {
       continue;
     }
     if (closer) checkWord(text, start, end, findings);
+    else if (first !== '' && first !== 'Latin' && (linkedToLatin(text, start - 1, -1) || linkedToLatin(text, end, 1))) {
+      checkWhole(text, start, end, first, findings);
+    }
     NON_ASCII.lastIndex = end;
   }
 

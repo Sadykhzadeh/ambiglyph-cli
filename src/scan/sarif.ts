@@ -3,7 +3,7 @@ import { relative, resolve } from 'path';
 import type { Finding, Rule } from '../engine/detect.js';
 
 const RULES: Record<Rule, string> = {
-  'mixed-script': 'A word mixes scripts, and a letter of the minority script passes for one of the majority.',
+  'mixed-script': 'A word mixes scripts, and a letter of the minority script passes for one of the majority; or a word in another script, joined to Latin text, passes for Latin.',
   'confusable': 'A word holds a compatibility, mathematical or ligature form that Unicode restricts in identifiers.',
   'invisible': 'A zero-width, filler, bidi control, tag character, extra variation selector or other mark that is not visible in the text.',
 };

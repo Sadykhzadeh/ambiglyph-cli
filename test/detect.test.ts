@@ -39,6 +39,28 @@ test('Cyrillic schwa in Azerbaijani becomes the Latin schwa, not the turned e', 
   assert.equal(detect('\u04D8li')[0].suggestion, '\u018Fli');
 });
 
+test('a word all in another script is reported where it is joined to Latin', () => {
+  // "apple" and "paypal" spelled in Cyrillic, with a palochka for the l.
+  const apple = '\u0430\u0440\u0440\u04CF\u0435';
+  const [f, ...rest] = detect(`visit https://${apple}.com/login`);
+  assert.equal(rest.length, 0);
+  assert.deepEqual([f.rule, f.text, f.column, f.suggestion], ['mixed-script', apple, 15, 'apple']);
+  assert.match(f.message, /^"\u0430\u0440\u0440\u04CF\u0435" is all Cyrillic, next to Latin: \u0430 U\+0430 \(Cyrillic\), /);
+  assert.equal(detect('mail user@\u0440\u0430\u0443\u0440\u0430\u04CF.example')[0]?.suggestion, 'paypal');
+  assert.equal(detect('\u0441\u043E\u0440\u0435.length')[0]?.suggestion, 'cope');
+  assert.equal(detect('my_\u0410\u0420\u0420')[0]?.suggestion, 'APP');
+});
+
+test('a word all in another script is fine on its own or next to its own script', () => {
+  // A Russian word next to English, ordinals such as "2-oe", a Russian
+  // domain, a word with a letter that has no Latin twin, and single Greek
+  // letters in "alpha-helix", "gamma-ray" and "rho_water", and the case
+  // ending Serbian hyphenates to an acronym.
+  for (const text of ['API-\u0458\u0435', 'Russian \u0441\u043E\u0440 means litter', '\u0412\u0430\u0441\u044F: 2-\u043E\u0435 \u043C\u0435\u0441\u0442\u043E', '\u0441\u0430\u0439\u0442.\u0440\u0444', '\u043A\u043E\u0442.com', '\u0441\u043E\u0440. And', '\u03B1-helix \u03B3-ray \u03C1_water']) {
+    assert.deepEqual(detect(text), [], text);
+  }
+});
+
 test('ordinary text in one script is left alone', () => {
   assert.deepEqual(detect('\u041F\u0440\u0438\u0432\u0435\u0442, \u043C\u0438\u0440! \u0410 \u043E \u0441 \u0443'), []);
   assert.deepEqual(detect('Az\u0259rbaycan dilind\u0259 \u0131 v\u0259 \u0259 h\u0259rfl\u0259ri'), []);
