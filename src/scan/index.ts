@@ -155,8 +155,8 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
     else report.write(findings.map(f => line(name, f)).join(''));
   }
 
-  if (options.json) process.stdout.write(`${JSON.stringify(json, null, 2)}\n`);
-  else if (options.sarif) process.stdout.write((await import('./sarif.js')).sarif(json));
+  if (options.json) report.write(`${JSON.stringify(json, null, 2)}\n`);
+  else if (options.sarif) report.write((await import('./sarif.js')).sarif(json));
   else if (problems) {
     const fixes = options.fix ? `, ${fixed} fixed` : fixable ? ` (${fixable} fixable with --fix)` : '';
     console.error(`${plural(problems, 'problem')} in ${withProblems} of ${plural(checked, 'file')} checked${fixes}`);

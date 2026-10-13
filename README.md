@@ -82,8 +82,8 @@ Dear pаrtner <!-- ambiglyph-ignore -->
 characters change; line endings, a byte order mark and the rest of the file
 stay exactly as they were. A finding with no suggestion, such as a Greek "ε"
 in a Latin word, is reported and left for you. Given `-` alone, `--fix` is a
-filter: the corrected text goes to standard output and the report to
-standard error.
+filter: the corrected text goes to standard output and the report, in
+`--json` or `--sarif` too, to standard error.
 
 ```sh
 ambiglyph check --fix - < draft.md > clean.md

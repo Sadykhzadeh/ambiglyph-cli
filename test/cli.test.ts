@@ -173,6 +173,15 @@ test('--fix - is a filter: fixed text out, report on stderr', () => {
   assert.equal(run(tree({}), ['check', '--fix', '-'], 'plain\n').out, 'plain\n');
 });
 
+test('--fix - sends --json and --sarif to stderr, leaving stdout to the text', () => {
+  const json = run(tree({}), ['check', '--fix', '--json', '-'], spoofed);
+  assert.equal(json.out, 'log in at paypal.com\n');
+  assert.equal(JSON.parse(json.err)[0].fixed, true);
+  const sarif = run(tree({}), ['check', '--fix', '--sarif', '-'], spoofed);
+  assert.equal(sarif.out, 'log in at paypal.com\n');
+  assert.equal(JSON.parse(sarif.err).runs[0].results.length, 1);
+});
+
 test('usage errors exit 2', () => {
   const root = tree({});
   assert.equal(run(root, ['check', '--nope']).code, 2);
