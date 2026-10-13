@@ -10,7 +10,11 @@ whose server it can still talk to.
 
 ## Install and build
 
+It is not published to the npm registry, so it is built from a clone:
+
 ```sh
+git clone https://got.az/azer/ambiglyph-cli.git
+cd ambiglyph-cli
 npm install
 npm run build
 node dist/index.js --help
@@ -113,10 +117,16 @@ nothing staged it exits 0. It cannot be combined with paths or `--fix`.
 `--sarif` prints the same findings as a SARIF 2.1.0 log, which GitHub code scanning
 and most CI dashboards read. Paths are relative to the working directory and
 the exit status is unchanged, so a workflow step that should still upload the
-results has to tolerate the 1:
+results has to tolerate the 1. The workflow builds the tool from its
+repository; `npx ambiglyph` would instead run whatever package the registry
+has under that name.
 
 ```yaml
-- run: npx ambiglyph check --sarif > ambiglyph.sarif || [ $? -eq 1 ]
+- run: |
+    git clone --depth 1 https://got.az/azer/ambiglyph-cli.git "$RUNNER_TEMP/ambiglyph"
+    npm ci --prefix "$RUNNER_TEMP/ambiglyph"
+    npm run build --prefix "$RUNNER_TEMP/ambiglyph"
+- run: node "$RUNNER_TEMP/ambiglyph/dist/index.js" check --sarif > ambiglyph.sarif || [ $? -eq 1 ]
 - uses: github/codeql-action/upload-sarif@v3
   with:
     sarif_file: ambiglyph.sarif
