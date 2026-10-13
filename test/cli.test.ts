@@ -112,7 +112,7 @@ test('binary files are skipped', () => {
 });
 
 // Permissions do not keep root out, nor anyone on Windows.
-test('a directory that cannot be read is reported, the rest is checked, and it exits 2', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, () => {
+test('a directory that cannot be read is reported, walked or globbed, the rest is checked, and it exits 2', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, () => {
   const root = tree({ 'locked/a.md': spoofed, 'open/b.md': spoofed });
   chmodSync(join(root, 'locked'), 0o000);
   try {
@@ -120,6 +120,11 @@ test('a directory that cannot be read is reported, the rest is checked, and it e
     assert.equal(r.code, 2);
     assert.match(r.err, /^ambiglyph: locked: EACCES$/m);
     assert.match(r.out, /^open[\\/]b\.md:1:12 /);
+    const globbed = run(root, ['check', '**/*.md']);
+    assert.equal(globbed.code, 2);
+    assert.equal(globbed.err.match(/^ambiglyph: locked: EACCES$/gm)?.length, 1);
+    assert.match(globbed.out, /^open[\\/]b\.md:1:12 /);
+    assert.equal(run(root, ['check', 'open/*.md']).code, 1);
   } finally {
     chmodSync(join(root, 'locked'), 0o755);
   }

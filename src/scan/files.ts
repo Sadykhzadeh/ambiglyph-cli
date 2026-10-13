@@ -1,5 +1,5 @@
-import { globSync, readdirSync, statSync } from 'fs';
-import { join } from 'path';
+import { accessSync, constants, globSync, readdirSync, statSync, type Dirent } from 'fs';
+import { isAbsolute, join, relative, resolve } from 'path';
 
 // Never worth walking into, unless a pattern names them outright.
 const SKIP = new Set(['node_modules', '.git']);
@@ -41,9 +41,26 @@ export function expand(arg: string, unreadable: (message: string) => void): stri
   else {
     const pattern = process.platform === 'win32' ? arg.replace(/\\/g, '/') : arg;
     const named = [...SKIP].some(name => pattern.split('/').includes(name));
+    // globSync passes over a directory it cannot list without a word, so each
+    // one it is about to enter is tried first and, when it cannot be read,
+    // reported and left out, as the walk above does.
+    const reported = new Set<string>();
+    const exclude = (entry: Dirent): boolean => {
+      if (!entry.isDirectory()) return false;
+      if (!named && SKIP.has(entry.name)) return true;
+      const path = resolve(entry.parentPath, entry.name);
+      try { accessSync(path, constants.R_OK); } catch (e) {
+        if (!reported.has(path)) {
+          reported.add(path);
+          unreadable(`${isAbsolute(pattern) ? path : relative('.', path)}: ${(e as NodeJS.ErrnoException).code ?? (e as Error).message}`);
+        }
+        return true;
+      }
+      return false;
+    };
     for (const entry of globSync(pattern, {
       withFileTypes: true,
-      exclude: entry => !named && typeof entry !== 'string' && entry.isDirectory() && SKIP.has(entry.name),
+      exclude: entry => typeof entry !== 'string' && exclude(entry),
     })) {
       if (entry.isFile()) files.push(join(entry.parentPath, entry.name));
     }
