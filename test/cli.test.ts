@@ -147,6 +147,20 @@ test('a directory that cannot be read is reported, walked or globbed, the rest i
   }
 });
 
+test('an ignored directory is not walked into, so one that cannot be read is no error', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, () => {
+  const root = tree({ 'vendor/locked/a.md': spoofed, 'open/b.md': spoofed });
+  chmodSync(join(root, 'vendor', 'locked'), 0o000);
+  try {
+    for (const glob of ['vendor', 'vendor/', 'locked', 'vendor/**']) {
+      const r = run(root, ['check', '--ignore', glob]);
+      assert.equal(r.code, 1);
+      assert.equal(r.err, '1 problem in 1 of 1 file checked (1 fixable with --fix)\n');
+    }
+  } finally {
+    chmodSync(join(root, 'vendor', 'locked'), 0o755);
+  }
+});
+
 test('a missing path or an empty glob exits 2, even with findings elsewhere', () => {
   const root = tree({ 'doc.md': spoofed });
   const r = run(root, ['check', 'doc.md', 'missing.txt', 'none/*.ts']);

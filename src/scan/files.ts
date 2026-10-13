@@ -5,7 +5,7 @@ import { isAbsolute, join, relative, resolve } from 'path';
 const SKIP = new Set(['node_modules', '.git']);
 const GLOB = /[*?[\]{}]/;
 
-function walk(dir: string, out: string[], unreadable: (message: string) => void): void {
+function walk(dir: string, out: string[], unreadable: (message: string) => void, ignored?: (path: string, isDir: boolean) => boolean): void {
   let entries;
   try { entries = readdirSync(dir, { withFileTypes: true }); } catch (e) {
     unreadable(`${dir}: ${(e as NodeJS.ErrnoException).code ?? (e as Error).message}`);
@@ -14,7 +14,7 @@ function walk(dir: string, out: string[], unreadable: (message: string) => void)
   for (const entry of entries) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (!SKIP.has(entry.name)) walk(path, out, unreadable);
+      if (!SKIP.has(entry.name) && !ignored?.(path, true)) walk(path, out, unreadable, ignored);
     } else if (entry.isFile()) out.push(path);
   }
 }
@@ -25,8 +25,9 @@ export class InputError extends Error {}
 // under a directory, or whatever a glob matches. Globs are expanded here
 // because Windows shells leave them alone and CI configs often quote them.
 // A directory that cannot be listed is passed to `unreadable` and the walk
-// goes on without it.
-export function expand(arg: string, unreadable: (message: string) => void): string[] {
+// goes on without it. A directory below `arg` that `ignored` matches is not
+// walked at all.
+export function expand(arg: string, unreadable: (message: string) => void, ignored?: (path: string, isDir: boolean) => boolean): string[] {
   if (arg === '-') return [arg];
   let isDir = false;
   try {
@@ -37,7 +38,7 @@ export function expand(arg: string, unreadable: (message: string) => void): stri
     if (!GLOB.test(arg)) throw new InputError(`${arg}: no such file or directory`);
   }
   const files: string[] = [];
-  if (isDir) walk(arg, files, unreadable);
+  if (isDir) walk(arg, files, unreadable, ignored);
   else {
     const pattern = process.platform === 'win32' ? arg.replace(/\\/g, '/') : arg;
     const named = [...SKIP].some(name => pattern.split('/').includes(name));

@@ -21,11 +21,12 @@ function globToRegExp(glob: string): RegExp {
   return new RegExp(`^${pattern.includes('/') ? '' : '(?:.*/)?'}${source}${dirOnly ? '/' : '(?:/|$)'}`);
 }
 
-// Whether a file, taken relative to the working directory, matches any glob.
-export function ignoreMatcher(globs: string[]): (file: string) => boolean {
+// Whether a file or directory, taken relative to the working directory,
+// matches any glob. A directory that matches has every file in it matched.
+export function ignoreMatcher(globs: string[]): (file: string, isDir?: boolean) => boolean {
   const patterns = globs.map(globToRegExp);
-  return file => {
-    const path = relative(process.cwd(), resolve(file)).split(sep).join('/');
+  return (file, isDir = false) => {
+    const path = relative(process.cwd(), resolve(file)).split(sep).join('/') + (isDir ? '/' : '');
     return patterns.some(p => p.test(path));
   };
 }

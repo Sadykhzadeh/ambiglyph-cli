@@ -63,7 +63,8 @@ are read against paths relative to the working directory; `*` and `?` stay
 inside one name and `**` crosses directories. As in `.gitignore`, a pattern
 without a slash (a trailing one aside) matches a name at any depth, a pattern
 that matches a directory skips everything in it, and a trailing slash matches
-only directories.
+only directories. A directory skipped this way is not walked at all, so it can
+be as large as it likes, or unreadable.
 
 ```sh
 ambiglyph check --ignore vendor --ignore '*.min.js'

@@ -91,6 +91,7 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
     throw e;
   });
 
+  const ignored = options.ignore?.length ? ignoreMatcher(options.ignore) : undefined;
   const files: string[] = [];
   let staged = new Map<string, Buffer>();
   try {
@@ -98,7 +99,7 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
       staged = stagedFiles();
       files.push(...staged.keys());
     } else for (const arg of args) {
-      try { files.push(...expand(arg, fail)); } catch (e) {
+      try { files.push(...expand(arg, fail, ignored)); } catch (e) {
         if (e instanceof InputError) fail(e.message); else throw e;
       }
     }
@@ -108,7 +109,6 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
 
   // Up to READ_AHEAD files are being read while one is checked, and results
   // are still taken in order, so the output does not depend on timing.
-  const ignored = options.ignore?.length ? ignoreMatcher(options.ignore) : undefined;
   // A file named twice, as `. ./a.md` or `a.md /abs/a.md` do, is checked once.
   const seen = new Set<string>();
   const queue = files.filter(file => {
