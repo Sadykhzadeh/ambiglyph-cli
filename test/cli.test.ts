@@ -224,8 +224,9 @@ test('usage errors exit 2', () => {
 });
 
 // Runs `check --server` against a stand-in for an Ambiglyph server that finds
-// nothing, and answers 500 to any text with "fail" in it.
-async function checkOnServer(cwd: string, file: string): Promise<void> {
+// nothing, and answers 500 to any text with "fail" in it. Resolves to the exit
+// status and stderr.
+async function checkOnServer(cwd: string, file: string): Promise<{ code: number, err: string }> {
   const server = createServer((req, res) => {
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -239,7 +240,8 @@ async function checkOnServer(cwd: string, file: string): Promise<void> {
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const env = { ...process.env, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, errorText: 'request failed' };
-    await promisify(execFile)(process.execPath, [cli, 'check', '--server', file], { cwd, env });
+    return await promisify(execFile)(process.execPath, [cli, 'check', '--server', file], { cwd, env })
+      .then(({ stderr }) => ({ code: 0, err: stderr }), (e: { code: number, stderr: string }) => ({ code: e.code, err: e.stderr }));
   } finally {
     server.close();
   }
@@ -256,6 +258,18 @@ test('check --server keeps every word, space and line it does not replace', asyn
   const root = tree({ '.ambi': 'token', 'a.txt': text });
   await checkOnServer(root, 'a.txt');
   assert.equal(readFileSync(join(root, 'a.txt.remove'), 'utf8'), text);
+});
+
+test('check --server reports a .remove file it cannot create and exits 2', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async () => {
+  const root = tree({ '.ambi': 'token', 'ro/a.txt': 'hello there world\n' });
+  chmodSync(join(root, 'ro'), 0o555);
+  try {
+    const r = await checkOnServer(root, join('ro', 'a.txt'));
+    assert.equal(r.code, 2);
+    assert.equal(r.err, `ambiglyph: ${join('ro', 'a.txt.remove')}: EACCES\n`);
+  } finally {
+    chmodSync(join(root, 'ro'), 0o755);
+  }
 });
 
 function repo(files: Record<string, string>): string {

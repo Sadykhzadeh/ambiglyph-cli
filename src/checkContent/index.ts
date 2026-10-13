@@ -27,10 +27,16 @@ export async function checkContent(path: string, serverWordPerRequest: number): 
   if (await checkFile(path)) {
     const resOfCrop: Array<Array<string> | "\n"> = cropFile(path, serverWordPerRequest);
     if (!fileExists("./.ambi")) return console.error("🤨 Hey, you did not log in to server...");
-    // createWriteStream truncates an existing file, so the unlink-then-write
-    // that used to precede it was doing nothing.
+    // The output is opened before the first request, so that a file that
+    // cannot be created is reported before any question is asked.
     const outputPath = `${path}.remove`;
-    const streamData = fs.createWriteStream(outputPath);
+    let fd: number;
+    try { fd = fs.openSync(outputPath, 'w'); } catch (e) {
+      console.error(`ambiglyph: ${outputPath}: ${(e as NodeJS.ErrnoException).code ?? (e as Error).message}`);
+      process.exitCode = 2;
+      return;
+    }
+    const streamData = fs.createWriteStream(outputPath, { fd });
     const token = fs.readFileSync("./.ambi", "utf8").trim();
     console.log("⏳Loading...");
     // A paragraph was cut into chunks at single spaces, which go back between them.
@@ -58,8 +64,8 @@ export async function checkContent(path: string, serverWordPerRequest: number): 
             const diffCheck: Array<string> = diff2Strings(arr.join(" "), futureText);
             for (let i = 0; i < diffCheck.length; i++) {
               const choiseArr: Array<{ title: string, value: string }> = [];
-              // A detection carrying no candidates used to throw here, on
-              // choiseArr[0].value further down.
+              // A detection can come without candidates; there is nothing to
+              // offer for it then.
               for (const cand of postResponce.candidates[i] ?? []) {
                 choiseArr.push({ title: cand, value: cand });
               }
@@ -82,8 +88,7 @@ export async function checkContent(path: string, serverWordPerRequest: number): 
         if (arr != "\n") streamData.write(arr.join(" "));
       }
     }
-    // close() returns immediately, so the old code could announce the file
-    // before the queued writes had actually reached it.
+    // The file is announced once the queued writes have reached it.
     await new Promise<void>((resolve, reject) => {
       streamData.once('error', reject);
       streamData.end(resolve);
