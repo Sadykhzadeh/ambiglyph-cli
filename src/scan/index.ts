@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { open, writeFile } from 'fs/promises';
-import { isAscii } from 'buffer';
+import { isAscii, isUtf8 } from 'buffer';
 import { resolve } from 'path';
 import { detect, type Finding } from '../engine/detect.js';
 import { applyFixes } from '../engine/fix.js';
@@ -154,7 +154,11 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
     const text = decode(data, encoding);
     const findings = withoutIgnored(text, detect(text));
     let output = text;
-    if (options.fix && findings.length) {
+    // Bytes that are not UTF-8 decode to U+FFFD, and writing the text back
+    // would replace them with it, so such a file is left as it is.
+    if (options.fix && findings.length && encoding === 'utf8' && !isUtf8(data)) {
+      fail(`${name}: not valid UTF-8, so the fixes were not written`);
+    } else if (options.fix && findings.length) {
       output = applyFixes(text, findings);
       if (!filter && output !== text) {
         try { await writeFile(file, encode(output, encoding)); } catch (e) {
@@ -163,7 +167,7 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
         }
       }
     }
-    if (filter) process.stdout.write(encode(output, encoding));
+    if (filter) process.stdout.write(output === text ? data : encode(output, encoding));
     if (!findings.length) continue;
     problems += findings.length;
     withProblems++;

@@ -87,7 +87,10 @@ Dear pаrtner <!-- ambiglyph-ignore -->
 `--fix` rewrites each file with every suggestion applied. Only the flagged
 characters change; line endings, a byte order mark and the rest of the file
 stay exactly as they were. A finding with no suggestion, such as a Greek "ε"
-in a Latin word, is reported and left for you. Given `-` alone, `--fix` is a
+in a Latin word, is reported and left for you. A file with bytes that are not
+valid UTF-8, a stray Latin-1 "é" for instance, is not rewritten at all, since
+those bytes could not be written back as they were; it is reported and the
+exit status is 2. Given `-` alone, `--fix` is a
 filter: the corrected text goes to standard output and the report, in
 `--json` or `--sarif` too, to standard error.
 

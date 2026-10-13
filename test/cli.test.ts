@@ -196,6 +196,21 @@ test('--fix exits 1 while something it cannot fix is left', () => {
   assert.equal(readFileSync(join(root, 'a.md'), 'utf8'), 'Gr\u03B5ece log in at paypal.com\n');
 });
 
+test('--fix leaves bytes that are not UTF-8 alone, and a file holding them unwritten', () => {
+  const bytes = Buffer.concat([Buffer.from(spoofed.trim()), Buffer.from([0x20, 0xa9, 0x0a])]);
+  const root = tree({ 'a.txt': bytes });
+  const r = run(root, ['check', '--fix']);
+  assert.equal(r.code, 2);
+  assert.match(r.err, /^ambiglyph: a\.txt: not valid UTF-8, so the fixes were not written$/m);
+  assert.doesNotMatch(r.out, /\(fixed\)/);
+  assert.deepEqual(readFileSync(join(root, 'a.txt')), bytes);
+  const filtered = spawnSync(process.execPath, [cli, 'check', '--fix', '-'], { input: bytes });
+  assert.equal(filtered.status, 2);
+  assert.deepEqual(filtered.stdout, bytes);
+  const latin1 = Buffer.from('caf\u00E9\n', 'latin1');
+  assert.deepEqual(spawnSync(process.execPath, [cli, 'check', '--fix', '-'], { input: latin1 }).stdout, latin1);
+});
+
 test('--fix - is a filter: fixed text out, report on stderr', () => {
   const r = run(tree({}), ['check', '--fix', '-'], `a\r\n${spoofed}`);
   assert.equal(r.code, 0);
