@@ -1,5 +1,5 @@
 import { readFileSync } from 'fs';
-import { readFile, writeFile } from 'fs/promises';
+import { open, writeFile } from 'fs/promises';
 import { isAscii } from 'buffer';
 import { resolve } from 'path';
 import { detect, type Finding } from '../engine/detect.js';
@@ -47,6 +47,24 @@ const decode = (data: Buffer, encoding: Encoding): string =>
   encoding === 'utf16be' ? Buffer.from(data).swap16().toString('utf16le') : data.toString(encoding);
 const encode = (text: string, encoding: Encoding): string | Buffer =>
   encoding === 'utf8' ? text : encoding === 'utf16le' ? Buffer.from(text, 'utf16le') : Buffer.from(text, 'utf16le').swap16();
+
+// A file's first 8000 bytes, which settle whether it is binary, are read on
+// their own, and the rest only when it is not: a video or a disk image in the
+// tree costs one small read instead of being loaded whole, and one over 2 GiB,
+// which Node cannot read into a Buffer, does not stop the run. null stands for
+// a binary file.
+async function readText(file: string): Promise<Buffer | null> {
+  const handle = await open(file);
+  try {
+    const head = Buffer.allocUnsafe(8000);
+    const { bytesRead } = await handle.read(head, 0, head.length, 0);
+    if (bytesRead < head.length) return head.subarray(0, bytesRead);
+    if (isBinary(head) && encodingOf(head) === 'utf8') return null;
+    return await handle.readFile();
+  } finally {
+    await handle.close();
+  }
+}
 
 // Reading is most of the work on a large tree. Keeping a few reads in flight
 // took a 3,100-file scan from 240 to 190 ms; more than this stopped helping.
@@ -99,8 +117,8 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
     seen.add(key);
     return file === '-' || !ignored?.(file);
   });
-  const load = (file: string): Promise<Buffer | Error> =>
-    (options.staged ? Promise.resolve(staged.get(file)!) : file === '-' ? Promise.resolve().then(() => readFileSync(0)) : readFile(file)).catch((e: Error) => e);
+  const load = (file: string): Promise<Buffer | null | Error> =>
+    (options.staged ? Promise.resolve(staged.get(file)!) : file === '-' ? Promise.resolve().then(() => readFileSync(0)) : readText(file)).catch((e: Error) => e);
   const reads = queue.slice(0, READ_AHEAD).map(load);
 
   const filter = options.fix === true && queue.length === 1 && queue[0] === '-';
@@ -121,6 +139,7 @@ export async function scan(args: string[], options: ScanOptions): Promise<number
       fail(`${file}: ${(data as NodeJS.ErrnoException).code ?? data.message}`);
       continue;
     }
+    if (data === null) continue;
     // Most files in a repository are pure ASCII, which is settled on the raw
     // bytes without decoding them at all.
     const encoding = encodingOf(data);

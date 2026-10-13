@@ -1,7 +1,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, truncateSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -109,6 +109,23 @@ test('binary files are skipped', () => {
   const r = run(root, ['check']);
   assert.equal(r.code, 0);
   assert.match(r.err, /1 file checked/);
+});
+
+test('files longer than the first 8000 bytes are read whole', () => {
+  const pad = 'x'.repeat(9000);
+  const root = tree({ 'a.md': `${pad}\n${spoofed}`, 'b.cs': Buffer.from(`\uFEFF${pad}\n${spoofed}`, 'utf16le') });
+  const r = run(root, ['check']);
+  assert.equal(r.code, 1);
+  assert.deepEqual(r.out.split('\n').filter(Boolean).map(l => l.split('  ')[0]), ['a.md:2:12', 'b.cs:2:12']);
+});
+
+// A sparse file, so that it takes no space; Windows would write it out.
+test('a binary file too large to read whole is skipped', { skip: process.platform === 'win32' }, () => {
+  const root = tree({ 'a.md': spoofed, 'big.bin': '' });
+  truncateSync(join(root, 'big.bin'), 3 * 2 ** 30);
+  const r = run(root, ['check']);
+  assert.equal(r.code, 1);
+  assert.match(r.err, /1 problem in 1 of 1 file checked/);
 });
 
 // Permissions do not keep root out, nor anyone on Windows.
