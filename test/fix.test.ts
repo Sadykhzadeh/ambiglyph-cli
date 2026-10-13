@@ -18,6 +18,7 @@ test('invisible characters are removed, tag runs whole', () => {
 
 test('a run of variation selectors is cut down to its first', () => {
   assert.equal(fix('\u2764\uFE0F\uFE01 and a\uFE00\u{E0158}\u{E0159}!'), '\u2764\uFE0F and a\uFE00!');
+  assert.equal(fix('a\uFE00\u{E0158}b'), 'ab');
 });
 
 test('a finding without a suggestion is left as it is', () => {
@@ -33,7 +34,7 @@ test('only the flagged characters change', () => {
 });
 
 test('the fixed text has nothing fixable left', () => {
-  const text = 'x\u0430y \u{1D41A}b \u200B Gr\u03B5ece \u043Fp\u0438';
+  const text = 'x\u0430y \u{1D41A}b \u200B Gr\u03B5ece \u043Fp\u0438 a\uFE00\uFE01b';
   const left = detect(fix(text));
   assert.deepEqual(left.map(f => f.text), ['Gr\u03B5ece']);
 });

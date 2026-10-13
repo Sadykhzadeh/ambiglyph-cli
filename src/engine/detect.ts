@@ -160,14 +160,49 @@ const JOINER_NAMES: Record<number, string> = {
   0x200d: 'ZERO WIDTH JOINER',
 };
 const ALPHABETS = new Set(['Latin', 'Greek', 'Cyrillic']);
+// Marks and format controls that display nothing but have uses of their own:
+// bidi marks at the edge of right-to-left text, the grapheme joiner between a
+// letter and its accent, Mongolian variation selectors. Between two letters or
+// digits of ALPHABETS none of them does anything a reader could see.
+const IN_WORD_NAMES: Record<number, string> = {
+  0x034f: 'COMBINING GRAPHEME JOINER',
+  0x061c: 'ARABIC LETTER MARK',
+  0x17b4: 'KHMER VOWEL INHERENT AQ',
+  0x17b5: 'KHMER VOWEL INHERENT AA',
+  0x180b: 'MONGOLIAN FREE VARIATION SELECTOR ONE',
+  0x180c: 'MONGOLIAN FREE VARIATION SELECTOR TWO',
+  0x180d: 'MONGOLIAN FREE VARIATION SELECTOR THREE',
+  0x180f: 'MONGOLIAN FREE VARIATION SELECTOR FOUR',
+  0x200e: 'LEFT-TO-RIGHT MARK',
+  0x200f: 'RIGHT-TO-LEFT MARK',
+  0x206a: 'INHIBIT SYMMETRIC SWAPPING',
+  0x206b: 'ACTIVATE SYMMETRIC SWAPPING',
+  0x206c: 'INHIBIT ARABIC FORM SHAPING',
+  0x206d: 'ACTIVATE ARABIC FORM SHAPING',
+  0x206e: 'NATIONAL DIGIT SHAPES',
+  0x206f: 'NOMINAL DIGIT SHAPES',
+  0x1bca0: 'SHORTHAND FORMAT LETTER OVERLAP',
+  0x1bca1: 'SHORTHAND FORMAT CONTINUING OVERLAP',
+  0x1bca2: 'SHORTHAND FORMAT DOWN STEP',
+  0x1bca3: 'SHORTHAND FORMAT UP STEP',
+  0x1d173: 'MUSICAL SYMBOL BEGIN BEAM',
+  0x1d174: 'MUSICAL SYMBOL END BEAM',
+  0x1d175: 'MUSICAL SYMBOL BEGIN TIE',
+  0x1d176: 'MUSICAL SYMBOL END TIE',
+  0x1d177: 'MUSICAL SYMBOL BEGIN SLUR',
+  0x1d178: 'MUSICAL SYMBOL END SLUR',
+  0x1d179: 'MUSICAL SYMBOL BEGIN PHRASE',
+  0x1d17a: 'MUSICAL SYMBOL END PHRASE',
+};
 
 const isSelector = (cp: number): boolean => (cp >= 0xfe00 && cp <= 0xfe0f) || (cp >= 0xe0100 && cp <= 0xe01ef);
 
 const NON_ASCII = /[\x80-\uFFFF]/g;
-// Words are runs of letters, marks and digits, minus emoji such as U+2139,
-// the Hangul fillers, which are letters by category but render as nothing,
-// and the variation selectors, which are marks but are checked on their own.
-const WORD_CHAR = /^(?![\p{Extended_Pictographic}\u115F\u1160\u3164\uFFA0]|[\uFE00-\uFE0F]|[\u{E0100}-\u{E01EF}])[\p{L}\p{M}\p{N}]/u;
+// Words are runs of letters, marks and digits, minus emoji such as U+2139 and
+// the characters Unicode says to render as nothing when unsupported: the
+// Hangul fillers, which are letters by category, and marks such as the
+// variation selectors, which are checked on their own.
+const WORD_CHAR = /^(?!\p{Extended_Pictographic}|\p{Default_Ignorable_Code_Point})[\p{L}\p{M}\p{N}]/u;
 
 // Chinese, Japanese and Korean text writes letters and digits fullwidth, so in
 // a word that holds one of their characters, or next to one, a fullwidth form
@@ -307,6 +342,7 @@ function checkInvisible(text: string, index: number, cp: number, out: Finding[])
   let next = index + (cp > 0xffff ? 2 : 1);
   let name = INVISIBLE_NAMES[cp];
   if ((cp === 0x200c || cp === 0x200d) && (isAlphabetic(text, index - 1) || isAlphabetic(text, next))) name = JOINER_NAMES[cp];
+  else if (cp in IN_WORD_NAMES && isAlphabetic(text, index - 1) && isAlphabetic(text, next)) name = IN_WORD_NAMES[cp];
   let message: string;
   if (name !== undefined) {
     // A byte order mark is only invisible noise when it is not the first character.
@@ -331,20 +367,24 @@ function checkInvisible(text: string, index: number, cp: number, out: Finding[])
     // Han variants do. Any more change nothing on screen, yet each can carry a
     // byte, which is how data is smuggled inside an emoji or a word. The same
     // selector repeated, as some keyboards double U+FE0F, carries nothing.
+    // Between two letters of ALPHABETS even the first has nothing to vary.
     let end = next;
-    let count = 0;
     let repeated = true;
     for (let c = text.codePointAt(end) ?? 0; isSelector(c); c = text.codePointAt(end) ?? 0) {
       end += c > 0xffff ? 2 : 1;
-      count++;
       repeated &&= c === cp;
     }
-    if (repeated) return end;
-    index = next;
-    cp = text.codePointAt(index)!;
+    const inWord = isAlphabetic(text, index - 1) && isAlphabetic(text, end);
+    if (!inWord) {
+      if (repeated) return end;
+      index = next;
+      cp = text.codePointAt(index)!;
+    }
+    let count = 0;
+    for (let i = index; i < end; i += text.codePointAt(i)! > 0xffff ? 2 : 1) count++;
     next = end;
     name = 'VARIATION SELECTORS';
-    message = `${count} variation selector${count === 1 ? '' : 's'} after another one, which nothing displays`;
+    message = `${count} variation selector${count === 1 ? '' : 's'} ${inWord ? 'inside a word' : 'after another one'}, which nothing displays`;
   } else return next;
   out.push({
     rule: 'invisible',

@@ -137,6 +137,19 @@ test('joiners are reported next to Latin, Greek and Cyrillic, not where scripts 
   assert.deepEqual(detect('\u{1F468}\u200D\u{1F469}\u200D\u{1F467} \u200D'), []);
 });
 
+test('marks and controls that show nothing are reported between two letters', () => {
+  const inside = ['\u200E', '\u200F', '\u061C', '\u034F', '\u17B4', '\u180B', '\u206A', '\u{1D173}', '\u{1BCA0}', '\uFE0E', '\u{E0100}'];
+  for (const c of inside) {
+    const found = detect(`pay${c}pal`);
+    assert.deepEqual(found.map(f => [f.rule, f.column, f.suggestion]), [['invisible', 4, '']], c);
+  }
+  assert.equal(detect('pay\u200Fpal')[0].message, 'U+200F RIGHT-TO-LEFT MARK is invisible');
+  assert.equal(detect('pay\uFE0E\uFE0Epal')[0].message, '2 variation selectors inside a word, which nothing displays');
+  // At the edge of a word, where right-to-left text and emoji need them, and
+  // between a letter and a combining mark.
+  assert.deepEqual(detect('\u05E9\u05DC\u05D5\u05DD Hello\u200F! \u0628\u061C1 \u2764\uFE0F u\u034F\u0308'), []);
+});
+
 test('a byte order mark is only reported away from the start', () => {
   assert.deepEqual(detect('\uFEFFhello'), []);
   assert.equal(detect('hel\uFEFFlo')[0].column, 4);

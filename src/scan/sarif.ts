@@ -5,7 +5,7 @@ import type { Finding, Rule } from '../engine/detect.js';
 const RULES: Record<Rule, string> = {
   'mixed-script': 'A word mixes scripts, and a letter of the minority script passes for one of the majority.',
   'confusable': 'A word holds a compatibility, mathematical or ligature form that Unicode restricts in identifiers.',
-  'invisible': 'A zero-width, filler, bidi control, tag character or extra variation selector that is not visible in the text.',
+  'invisible': 'A zero-width, filler, bidi control, tag character, extra variation selector or other mark that is not visible in the text.',
 };
 
 // The file's URI against %SRCROOT%, which is the working directory however
