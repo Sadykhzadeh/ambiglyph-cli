@@ -1,4 +1,4 @@
-import { allowed, restricted, scripts } from './confusables.js';
+import { allowed, rare, restricted, scripts } from './confusables.js';
 
 export type Rule = 'mixed-script' | 'confusable' | 'invisible';
 
@@ -49,18 +49,18 @@ let bmpSlots: Uint16Array | undefined;
 const bmpInfos: CharInfo[] = [];
 const astralCache = new Map<number, CharInfo>();
 let table: Map<number, { to: string, restricted: boolean }> | undefined;
-// Ordinary letters by the replacement they share, for turning a stray
+// Allowed letters by the replacement they share, for turning a stray
 // character into the right letter of a word's own script.
 let twins: Map<string, string[]> | undefined;
 
 function loadTable(): Map<number, { to: string, restricted: boolean }> {
   table = new Map();
   twins = new Map();
-  for (const [group, isRestricted] of [[allowed, false], [restricted, true]] as const) {
+  for (const [group, isRestricted] of [[allowed, false], [rare, false], [restricted, true]] as const) {
     for (const to in group) {
       for (const ch of group[to]) {
         table.set(ch.codePointAt(0)!, { to, restricted: isRestricted });
-        if (!isRestricted && to) {
+        if (group === allowed && to) {
           const list = twins.get(to);
           if (list) list.push(ch); else twins.set(to, [ch]);
         }

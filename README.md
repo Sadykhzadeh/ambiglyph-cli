@@ -151,8 +151,13 @@ plumbing.
 The lookalike table is generated from the Unicode 18.0.0 security data
 (UTS #39) by `scripts/generate-confusables.mjs`. It keeps 1800 of the 6712
 entries in `confusables.txt`: the letters and digits outside ASCII that pass
-for a Latin letter or an ASCII digit, split by `IdentifierStatus.txt` into
-ordinary letters of other scripts and restricted forms. It is 17.5 KB of ASCII
+for a Latin letter or an ASCII digit, split by `IdentifierStatus.txt` and
+`IdentifierType.txt` into ordinary letters of other scripts and restricted
+forms. Letters restricted only for being little used, such as those of
+Cherokee, Canadian syllabics, Tifinagh and N'Ko, the native digits of Punjabi
+and Tamil, or the jamo of decomposed Korean, count as ordinary letters, so text
+written with them is left alone; they are never offered as the fix for a
+letter of another script. It is 18.4 KB of ASCII
 escapes in `src/engine/confusables.ts`; `npm run confusables` regenerates it,
 and `npm run confusables -- 19.0.0` moves it to another version.
 

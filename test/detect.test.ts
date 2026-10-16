@@ -68,6 +68,20 @@ test('ordinary text in one script is left alone', () => {
   assert.deepEqual(detect('\u039A\u03B1\u03BB\u03B7\u03BC\u03AD\u03C1\u03B1'), []);
 });
 
+test('letters Unicode keeps out of identifiers for being little used are ordinary', () => {
+  // Cherokee, Inuktitut syllabics, Tifinagh, N'Ko, Lisu, Coptic, "hello" in
+  // decomposed Korean, "10" in Punjabi digits and "what" in Yiddish.
+  for (const text of ['\u13E3\u13B3\u13A9 \u13A6\u13EC\u13C2\u13AF\u13CD\u13D7', '\u1472\u14C7\u1455', '\u2D5C\u2D30\u2D4E\u2D30\u2D63\u2D49\u2D56\u2D5C', '\u07D3\u07DF\u07CF', '\uA4E1\uA4F2\uA4E2\uA4F4', '\u2C80\u2C97\u2C97\u2C81', '\u110B\u1161\u11AB\u1102\u1167\u11BC', '\u0A67\u0A66', '\u05F0\u05D0\u05B8\u05E1']) {
+    assert.deepEqual(detect(text), [], text);
+  }
+  // Their lookalikes still pass for Latin in a Latin word or a link.
+  assert.deepEqual(detect('\u13AAmerica').map(f => [f.rule, f.suggestion]), [['mixed-script', 'America']]);
+  assert.deepEqual(detect('\uA4D0ank.com').map(f => [f.rule, f.suggestion]), [['mixed-script', 'Bank']]);
+  assert.deepEqual(detect('\uA4DA\uA4F3\uA4E0.com').map(f => [f.rule, f.suggestion]), [['mixed-script', 'CON']]);
+  // The obsolete letters of Cyrillic are no twin for a Latin d in Russian.
+  assert.deepEqual(detect('d\u0432\u0438\u0436\u0435\u043D\u0438\u0435'), []);
+});
+
 test('a script mix without a lookalike is not a homoglyph', () => {
   // Greek delta and mu next to Latin letters, as in physics notation.
   assert.deepEqual(detect('\u0394t = 5 \u03BCs'), []);
