@@ -209,6 +209,10 @@ const WORD_CHAR = /^(?!\p{Extended_Pictographic}|\p{Default_Ignorable_Code_Point
 // imitates nothing.
 const CJK = /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}\p{sc=Bopomofo}]/u;
 const CJK_FIRST = new RegExp(`^${CJK.source}`, 'u');
+// The same scripts by name. Their words take Latin letters as they are, as in
+// "T-shirt" or "type O blood", and no Latin letter there stands in for one of
+// theirs.
+const CJK_SCRIPTS = new Set(['Han', 'Hiragana', 'Katakana', 'Hangul', 'Bopomofo']);
 // Ideographic punctuation and the fullwidth forms, which can set a fullwidth
 // word apart from the CJK text it belongs to, as the parentheses of a
 // fullwidth "(1)" do before a heading or the commas of "1, 2, 3" in a list.
@@ -298,7 +302,7 @@ function checkWord(text: string, start: number, end: number, out: Finding[]): vo
     else {
       // Into another script through the shared replacement: Latin p in a
       // Cyrillic word becomes Cyrillic er.
-      const key = info.to ?? (info.script === 'Latin' ? ch : undefined);
+      const key = info.to ?? (info.script === 'Latin' && !CJK_SCRIPTS.has(base) ? ch : undefined);
       replacement = key ? twinIn(base, key, ch) : undefined;
       // An ordinary letter that has no twin in this script cannot be mistaken
       // for one of its letters, so it is just a word in two scripts.

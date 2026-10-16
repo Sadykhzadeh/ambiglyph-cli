@@ -127,6 +127,16 @@ test('fullwidth forms set off from Chinese, Japanese or Korean by punctuation ar
   assert.equal(detect(`\uFF50\uFF41\uFF59${'\uFF0C'.repeat(40)}\u306F`)[0]?.suggestion, 'pay');
 });
 
+test('Latin letters inside Chinese words are ordinary', () => {
+  // "T-shirt", "karaoke hall", "Y chromosome", "type O blood": a majority of
+  // Han does not turn their T, O and Y into the Han characters like them.
+  for (const word of ['T\u6064\u886B', '\u5361\u62C9OK\u5385', 'Y\u67D3\u8272\u4F53', 'O\u578B\u8840']) {
+    assert.deepEqual(detect(word), [], word);
+  }
+  // A Han character inside a Latin word still passes for a Latin letter.
+  assert.equal(detect('\u4E05est')[0]?.suggestion, 'Test');
+});
+
 test('a word ends at punctuation and underscores', () => {
   const [f, ...rest] = detect('user_n\u0430me');
   assert.equal(rest.length, 0);
