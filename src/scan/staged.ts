@@ -9,25 +9,29 @@ const MAX_OUTPUT = 1 << 30;
 // modified or renamed file under the current directory, keyed by its path
 // relative to it. The working tree is not looked at, so a file that was
 // edited after `git add` is checked as it will be committed, not as it is on
-// disk.
+// disk. A submodule has nothing of its own staged, only the commit it points
+// at, and is passed over.
 export function stagedFiles(): Map<string, Buffer> {
-  const diff = spawnSync('git', ['diff', '--cached', '--name-only', '--relative', '--diff-filter=ACMR', '-z'], { maxBuffer: MAX_OUTPUT });
+  const diff = spawnSync('git', ['diff', '--cached', '--raw', '--no-abbrev', '--relative', '--diff-filter=ACMR', '-z'], { maxBuffer: MAX_OUTPUT });
   if (diff.error || diff.status !== 0) {
     throw new InputError('--staged needs git and a git repository');
   }
-  const names = diff.stdout.toString('utf8').split('\0').filter(Boolean);
+  // Each entry is ":<old mode> <new mode> <old oid> <new oid> <status>", then
+  // the path, or for a copy or a rename the old path and the new one.
+  const fields = diff.stdout.toString('utf8').split('\0');
+  const blobs: Array<[string, string]> = [];
+  for (let i = 0; i + 1 < fields.length; i += 2) {
+    const [, mode, , oid, status] = fields[i].split(' ');
+    if (status[0] === 'R' || status[0] === 'C') i++;
+    if (mode !== '160000') blobs.push([fields[i + 1], oid]);
+  }
   const staged = new Map<string, Buffer>();
-  if (!names.length) return staged;
+  if (!blobs.length) return staged;
 
   // One process answers for all of them, which beats a `git show` per file.
-  // A name holding a newline cannot be asked for this way; git quotes such
-  // names for humans only, and they are rare enough to just report.
-  const asked = names.filter(name => !name.includes('\n'));
-  if (asked.length < names.length) {
-    throw new InputError('--staged cannot read a path with a newline in it');
-  }
+  // They are asked for by object name, which any path can be read by.
   const cat = spawnSync('git', ['cat-file', '--batch'], {
-    input: asked.map(name => `:./${name}\n`).join(''),
+    input: blobs.map(([, oid]) => `${oid}\n`).join(''),
     maxBuffer: MAX_OUTPUT,
   });
   if (cat.error || cat.status !== 0) throw new InputError('could not read the staged files from git');
@@ -35,14 +39,13 @@ export function stagedFiles(): Map<string, Buffer> {
   // Each answer is "<oid> <type> <size>\n", that many bytes, then "\n".
   const out = cat.stdout;
   let at = 0;
-  for (const name of asked) {
+  for (const [name] of blobs) {
     const eol = out.indexOf(10, at);
     const [, type, size] = out.toString('latin1', at, eol).split(' ');
     at = eol + 1;
-    if (type === 'missing' || type === 'ambiguous') throw new InputError(`${name}: not in the index`);
+    if (type !== 'blob') throw new InputError(`${name}: could not be read from git`);
     const length = +size;
-    // A submodule shows up as a commit; there is nothing in it to read.
-    if (type === 'blob') staged.set(name, out.subarray(at, at + length));
+    staged.set(name, out.subarray(at, at + length));
     at += length + 1;
   }
   return staged;

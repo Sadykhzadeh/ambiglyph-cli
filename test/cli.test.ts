@@ -338,6 +338,27 @@ test('--staged works from a subdirectory and reports paths relative to it', () =
   assert.equal(r.out.split('\n').filter(Boolean).length, 1);
 });
 
+test('--staged passes over a submodule and reads renamed files by their new name', () => {
+  const root = repo({ 'old.md': spoofed });
+  const git = (...args: string[]) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: root, encoding: 'utf8' });
+  git('commit', '-qm', 'init');
+  git('mv', 'old.md', 'new.md');
+  // A gitlink to a commit that, as in any submodule, is not in this repository.
+  git('update-index', '--add', '--cacheinfo', `160000,${'1'.repeat(40)},sub`);
+  const r = run(root, ['check', '--staged']);
+  assert.equal(r.code, 1);
+  assert.equal(r.out.split('\n').filter(Boolean).length, 1);
+  assert.match(r.out, /^new\.md:1:12 /);
+  assert.match(r.err, /1 problem in 1 of 1 file checked/);
+});
+
+test('--staged reads a path with a newline in it', { skip: process.platform === 'win32' }, () => {
+  const root = repo({ 'two\nlines.md': spoofed });
+  const r = run(root, ['check', '--staged']);
+  assert.equal(r.code, 1);
+  assert.match(r.out, /^two\nlines\.md:1:12 /);
+});
+
 test('--sarif prints a SARIF 2.1.0 log with one result per finding', () => {
   const root = tree({ 'docs/a b.md': `x\n${spoofed}`, 'ok.txt': 'fine\n' });
   const r = run(root, ['check', '--sarif']);
