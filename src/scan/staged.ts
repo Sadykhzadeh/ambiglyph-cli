@@ -6,13 +6,13 @@ import { InputError } from './files.js';
 const MAX_OUTPUT = 1 << 30;
 
 // What is about to be committed: the staged content of every added, copied,
-// modified or renamed file under the current directory, keyed by its path
-// relative to it. The working tree is not looked at, so a file that was
-// edited after `git add` is checked as it will be committed, not as it is on
-// disk. A submodule has nothing of its own staged, only the commit it points
-// at, and is passed over.
+// modified or renamed file under the current directory, or one that took the
+// place of a symlink, keyed by its path relative to it. The working tree is
+// not looked at, so a file that was edited after `git add` is checked as it
+// will be committed, not as it is on disk. A submodule has nothing of its own
+// staged, only the commit it points at, and is passed over.
 export function stagedFiles(): Map<string, Buffer> {
-  const diff = spawnSync('git', ['diff', '--cached', '--raw', '--no-abbrev', '--relative', '--diff-filter=ACMR', '-z'], { maxBuffer: MAX_OUTPUT });
+  const diff = spawnSync('git', ['diff', '--cached', '--raw', '--no-abbrev', '--relative', '--diff-filter=ACMRT', '-z'], { maxBuffer: MAX_OUTPUT });
   if (diff.error || diff.status !== 0) {
     throw new InputError('--staged needs git and a git repository');
   }

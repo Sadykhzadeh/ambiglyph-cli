@@ -1,7 +1,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, truncateSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, truncateSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -350,6 +350,21 @@ test('--staged passes over a submodule and reads renamed files by their new name
   assert.equal(r.out.split('\n').filter(Boolean).length, 1);
   assert.match(r.out, /^new\.md:1:12 /);
   assert.match(r.err, /1 problem in 1 of 1 file checked/);
+});
+
+// Windows checkouts often cannot make symlinks.
+test('--staged checks a file staged in place of a symlink', { skip: process.platform === 'win32' }, () => {
+  const root = repo({ 'target.md': 'plain\n' });
+  const git = (...args: string[]) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: root, encoding: 'utf8' });
+  symlinkSync('target.md', join(root, 'link.md'));
+  git('add', 'link.md');
+  git('commit', '-qm', 'init');
+  rmSync(join(root, 'link.md'));
+  writeFileSync(join(root, 'link.md'), spoofed);
+  git('add', 'link.md');
+  const r = run(root, ['check', '--staged']);
+  assert.equal(r.code, 1);
+  assert.match(r.out, /^link\.md:1:12 /);
 });
 
 test('--staged reads a path with a newline in it', { skip: process.platform === 'win32' }, () => {
