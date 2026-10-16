@@ -54,7 +54,11 @@ Ordinary text in any one script, Azerbaijani "ə" and "ı" included, is left
 alone.
 
 Directories are walked including dotfiles such as `.github`, but skipping
-`node_modules` and `.git`. A file with a NUL byte in its first 8000 bytes is
+`node_modules` and `.git`. In a git work tree, directories and globs also skip
+the untracked files git ignores, as `git status` does: build output, `.venv`,
+`coverage` and the like. A file git tracks is checked whatever `.gitignore`
+says, and an ignored directory or file is checked when named, as in
+`ambiglyph check dist`. A file with a NUL byte in its first 8000 bytes is
 taken as binary and skipped without reading the rest, unless it starts with a
 UTF-16 byte order mark: UTF-16 files, which Windows tools write and C# and
 PowerShell accept as source, are checked, and `--fix` writes them back in

@@ -359,6 +359,21 @@ test('--staged reads a path with a newline in it', { skip: process.platform === 
   assert.match(r.out, /^two\nlines\.md:1:12 /);
 });
 
+test('directories and globs skip what git ignores, unless it is named', () => {
+  const root = repo({ '.gitignore': 'dist/\n*.log\n', 'src/a.md': spoofed, 'src/b.log': spoofed, 'dist/c.md': spoofed, 'dist/sub/d.md': spoofed, 'kept.log': spoofed });
+  spawnSync('git', ['add', '-f', 'kept.log'], { cwd: root });
+  const files = (cwd: string, args: string[]) => JSON.parse(run(cwd, ['check', '--json', ...args]).out)
+    .map((f: { file: string }) => f.file.replace(/\\/g, '/')).sort();
+  assert.deepEqual(files(root, []), ['kept.log', 'src/a.md']);
+  assert.deepEqual(files(join(root, 'src'), ['.', '..']), ['../kept.log', 'a.md']);
+  assert.deepEqual(files(root, ['**/*.md']), ['src/a.md']);
+  assert.deepEqual(files(root, ['dist']), ['dist/c.md', 'dist/sub/d.md']);
+  assert.deepEqual(files(root, ['dist/sub', 'dist/*.md', 'src/b.log']), ['dist/c.md', 'dist/sub/d.md', 'src/b.log']);
+  const none = run(root, ['check', 'src/*.log', 'src']);
+  assert.equal(none.code, 2);
+  assert.match(none.err, /^ambiglyph: src\/\*\.log: no files match that git does not ignore$/m);
+});
+
 test('--sarif prints a SARIF 2.1.0 log with one result per finding', () => {
   const root = tree({ 'docs/a b.md': `x\n${spoofed}`, 'ok.txt': 'fine\n' });
   const r = run(root, ['check', '--sarif']);

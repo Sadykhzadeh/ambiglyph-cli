@@ -36,9 +36,10 @@ program.command('check [paths...]')
 With --staged, the files in git's index are checked instead, as they will be
 committed; with nothing staged, nothing is checked.
 
-Paths can be files, directories (walked, skipping node_modules and .git) or
-globs; - reads stdin. The default is the current directory. With --fix, a
-lone - turns the command into a filter: fixed text out, report on stderr.
+Paths can be files, directories (walked, skipping node_modules, .git and what
+git ignores) or globs; - reads stdin. The default is the current directory.
+With --fix, a lone - turns the command into a filter: fixed text out, report
+on stderr.
 
 Exit status: 0 nothing found (or all of it fixed), 1 problems found, 2 the
 check could not run.
