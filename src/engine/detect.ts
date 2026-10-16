@@ -103,6 +103,7 @@ function infoOf(cp: number): CharInfo {
   return info;
 }
 
+const ASCII_WORD = /^[A-Za-z]+$/;
 const ASCII_LETTER: CharInfo = { word: true, script: 'Latin', restricted: false };
 const ASCII_DIGIT: CharInfo = { word: true, script: '', restricted: false };
 
@@ -294,6 +295,24 @@ function checkWord(text: string, start: number, end: number, out: Finding[]): vo
   for (let k = 0; k < seen.length; k++) {
     if (counts[k] > best || (counts[k] === best && seen[k] === 'Latin')) { base = seen[k]; best = counts[k]; }
   }
+  // But a Greek or Cyrillic word with Latin letters in it, whose every other
+  // letter passes for a Latin one, reads as Latin. If one of its Latin letters
+  // has no twin of the same case in the majority script, or the word is joined
+  // to Latin text as in a link, it is Latin, however few such letters it has:
+  // "google" with its o's Cyrillic, or "facebook" with five letters Cyrillic.
+  // Otherwise, as in "apple" with its a, p and e Cyrillic, it could be either,
+  // and no fix is offered: one into the majority script would finish the spoof.
+  let ambiguous = false;
+  if (base !== 'Latin' && ALPHABETS.has(base) && seen.includes('Latin') && infos.every(info => info.script === '' || info.script === 'Latin' || (info.to !== undefined && ASCII_WORD.test(info.to)))) {
+    const twinless = infos.some((info, j) => {
+      if (info.script !== 'Latin') return false;
+      const ch = String.fromCodePoint(word.codePointAt(offsets[j])!);
+      const twin = twinIn(base, info.to ?? ch, ch);
+      return twin === undefined || (twin !== twin.toLowerCase()) !== (ch !== ch.toLowerCase());
+    });
+    if (twinless || linkedToLatin(text, start - 1, -1) || linkedToLatin(text, end, 1)) base = 'Latin';
+    else ambiguous = true;
+  }
 
   let suspects: Suspect[] | undefined;
   let mixed = false;
@@ -316,6 +335,7 @@ function checkWord(text: string, start: number, end: number, out: Finding[]): vo
       // An ordinary letter that has no twin in this script cannot be mistaken
       // for one of its letters, so it is just a word in two scripts.
       if (!info.restricted && replacement === undefined) continue;
+      if (ambiguous) replacement = undefined;
     }
     if (foreign) mixed = true;
     (suspects ??= []).push({ char: ch, codePoint: hex(cp), script: info.script, index: start + i, replacement });
@@ -373,7 +393,7 @@ function checkWhole(text: string, start: number, end: number, script: string, ou
     const ch = String.fromCodePoint(cp);
     const info = cp < 0x80 ? ASCII_DIGIT : infoOf(cp);
     if (info.script === '') suggestion += ch;
-    else if (info.to && /^[A-Za-z]+$/.test(info.to)) {
+    else if (info.to && ASCII_WORD.test(info.to)) {
       suspects.push({ char: ch, codePoint: hex(cp), script: info.script, index: start + i, replacement: info.to });
       suggestion += info.to;
     } else return;

@@ -34,6 +34,20 @@ test('a Latin letter inside a Cyrillic word becomes Cyrillic', () => {
   assert.equal(f.suggestion, '\u043F\u0440\u0438\u0432\u0435\u0442');
 });
 
+test('a Latin word spelled mostly in Cyrillic is fixed back to Latin, never into Cyrillic', () => {
+  // "facebook", "goo.gl" and "ebay", each with a Latin letter Cyrillic lacks.
+  assert.equal(detect('f\u0430\u0441\u0435b\u043E\u043Ek')[0]?.suggestion, 'facebook');
+  assert.equal(detect('g\u043E\u043E.gl')[0]?.suggestion, 'goo');
+  assert.deepEqual(detect('\u0435b\u0430\u0443').map(f => [f.rule, f.suggestion]), [['mixed-script', 'ebay']]);
+  // "apple" could be Cyrillic all through, so only a link settles it.
+  const [apple] = detect('\u0430\u0440\u0440l\u0435');
+  assert.deepEqual([apple.rule, apple.suggestion], ['mixed-script', undefined]);
+  assert.equal(detect('https://\u0430\u0440\u0440l\u0435.com')[0]?.suggestion, 'apple');
+  // Other scripts are not what such spoofs are made of: a Hebrew ordinal
+  // ending on a date pattern letter.
+  assert.deepEqual(detect('d\u05D8\u05DF'), []);
+});
+
 test('Cyrillic schwa in Azerbaijani becomes the Latin schwa, not the turned e', () => {
   assert.equal(detect('Az\u04D9rbaycan')[0].suggestion, 'Az\u0259rbaycan');
   assert.equal(detect('\u04D8li')[0].suggestion, '\u018Fli');
