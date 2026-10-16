@@ -478,11 +478,14 @@ function checkInvisible(text: string, index: number, cp: number, out: Finding[])
   return next;
 }
 
+// The next line break is remembered between findings, so that many findings
+// on one long line, as in a minified file, do not each search to its end.
 function locate(text: string, findings: Finding[]): void {
   let line = 1;
   let lineStart = 0;
+  let nl = text.indexOf('\n');
   for (const f of findings) {
-    for (let nl = text.indexOf('\n', lineStart); nl !== -1 && nl < f.index; nl = text.indexOf('\n', lineStart)) {
+    for (; nl !== -1 && nl < f.index; nl = text.indexOf('\n', lineStart)) {
       line++;
       lineStart = nl + 1;
     }
