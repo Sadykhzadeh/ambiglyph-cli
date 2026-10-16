@@ -102,6 +102,13 @@ test('fullwidth, mathematical and ligature forms', () => {
   assert.equal(detect('\uFB01le')[0].suggestion, 'file');
   assert.equal(detect('Chapter \u2163')[0].suggestion, 'IV');
   assert.equal(detect('\uFF4Dore')[0].suggestion, 'more');
+  // What they stand for, not what they look like: the long s passes for an f,
+  // and the prototype of a capital I, which these have no lowercase to tell
+  // apart from, is a small L.
+  assert.equal(detect('Wa\u017F\u017Fer')[0].suggestion, 'Wasser');
+  assert.equal(detect('\uFB05op')[0].suggestion, 'stop');
+  assert.equal(detect('\u{1D408}nvoice')[0].suggestion, 'Invoice');
+  assert.equal(detect('\u2110D')[0].suggestion, 'ID');
 });
 
 test('fullwidth forms are ordinary inside Chinese, Japanese and Korean words', () => {

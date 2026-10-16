@@ -119,6 +119,15 @@ const sameLetter = (a, b) => names.has(a) && names.has(b)
 const replacement = new Map();
 function replace(ch) {
   if (replacement.has(ch)) return replacement.get(ch);
+  // A compatibility letter whose NFKC form is spelled in ASCII is that
+  // spelling, whatever it looks like: the long s passes for an f but is an s,
+  // and a mathematical capital I, which has no lowercase to show its case by,
+  // is still a capital.
+  const nfkc = ch.normalize('NFKC');
+  if (nfkc !== ch && /^\p{L}$/u.test(ch) && /^[A-Za-z]+$/.test(nfkc)) {
+    replacement.set(ch, nfkc);
+    return nfkc;
+  }
   const target = skeleton(ch);
   const upper = ch.toUpperCase();
   const capital = isLower(ch) && [...upper].length === 1 && prototype.has(upper.codePointAt(0)) ? replace(upper) : '';

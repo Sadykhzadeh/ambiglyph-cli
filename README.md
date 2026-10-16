@@ -167,7 +167,8 @@ and `npm run confusables -- 19.0.0` moves it to another version.
 
 The suggested fix is the letter the character stands for, not the raw UTS #39
 prototype, which maps "I" and "1" to "l" and "m" to "rn". So a Cyrillic "І"
-becomes "I", and a Cyrillic "ә" in Azerbaijani text becomes the Latin "ə".
+becomes "I", a Cyrillic "ә" in Azerbaijani text becomes the Latin "ə", and a
+long "ſ", which passes for an "f", becomes "s".
 
 On Node 24 a single file is checked in about 55 ms, most of which is Node
 starting up, and all 3,100 files of this project's `node_modules` (41 MB) in
