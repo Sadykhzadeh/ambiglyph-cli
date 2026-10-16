@@ -195,6 +195,15 @@ const IN_WORD_NAMES: Record<number, string> = {
   0x1d17a: 'MUSICAL SYMBOL END PHRASE',
 };
 
+// Thai, Lao, Khmer, Burmese and the Tai scripts put no spaces between words,
+// and a zero width space marks where a line may break between two of them.
+// The Mongolian vowel separator sets off the final vowel of a Mongolian word.
+// Either is reported only away from its script, across any more of it.
+const UNSPACED = /^[\p{sc=Thai}\p{sc=Lao}\p{sc=Khmer}\p{sc=Myanmar}\p{sc=Tai_Tham}\p{sc=Tai_Le}\p{sc=New_Tai_Lue}\p{sc=Tai_Viet}\p{sc=Ahom}]/u;
+const MONGOLIAN = /^\p{sc=Mongolian}/u;
+const ZWSP = /\u200B/;
+const MVS = /\u180E/;
+
 const isSelector = (cp: number): boolean => (cp >= 0xfe00 && cp <= 0xfe0f) || (cp >= 0xe0100 && cp <= 0xe01ef);
 
 const NON_ASCII = /[\x80-\uFFFF]/g;
@@ -217,22 +226,22 @@ const CJK_SCRIPTS = new Set(['Han', 'Hiragana', 'Katakana', 'Hangul', 'Bopomofo'
 // word apart from the CJK text it belongs to, as the parentheses of a
 // fullwidth "(1)" do before a heading or the commas of "1, 2, 3" in a list.
 const CJK_GAP = /[\u3000-\u303F\u30FB\uFF01-\uFF65]/;
-// How far either way to look for that text, which keeps a long fullwidth run
-// with none in it from being walked again for each of its words.
-const CJK_REACH = 32;
+// How far either way to look past such gaps, which keeps a long run of them
+// from being walked again for each of its words or characters.
+const REACH = 32;
 
-// Whether CJK text lies on either side of start..end, across nothing but
-// CJK_GAP characters.
-function cjkAround(text: string, start: number, end: number): boolean {
+// Whether text that `script` matches at its start lies on either side of
+// start..end, across nothing but characters `gap` matches.
+function scriptAround(text: string, start: number, end: number, gap: RegExp, script: RegExp): boolean {
   let i = start - 1;
-  while (i >= 0 && i >= start - CJK_REACH && CJK_GAP.test(text[i])) i--;
+  while (i >= 0 && i >= start - REACH && gap.test(text[i])) i--;
   if (i >= 0) {
     const c = text.charCodeAt(i);
-    if (CJK_FIRST.test(text.slice(c >= 0xdc00 && c <= 0xdfff && i > 0 ? i - 1 : i, i + 1))) return true;
+    if (script.test(text.slice(c >= 0xdc00 && c <= 0xdfff && i > 0 ? i - 1 : i, i + 1))) return true;
   }
   i = end;
-  while (i < text.length && i < end + CJK_REACH && CJK_GAP.test(text[i])) i++;
-  return CJK_FIRST.test(text.slice(i, i + 2));
+  while (i < text.length && i < end + REACH && gap.test(text[i])) i++;
+  return script.test(text.slice(i, i + 2));
 }
 
 const isAsciiWordChar = (c: number): boolean =>
@@ -295,7 +304,7 @@ function checkWord(text: string, start: number, end: number, out: Finding[]): vo
     if (!info.restricted && !(foreign && (info.to !== undefined || base !== 'Latin'))) continue;
     const i = offsets[j];
     const cp = word.codePointAt(i)!;
-    if (cp >= 0xff01 && cp <= 0xff5e && (cjk ??= CJK.test(word) || cjkAround(text, start, end))) continue;
+    if (cp >= 0xff01 && cp <= 0xff5e && (cjk ??= CJK.test(word) || scriptAround(text, start, end, CJK_GAP, CJK_FIRST))) continue;
     const ch = String.fromCodePoint(cp);
     let replacement: string | undefined;
     if (base === 'Latin' || base === '') replacement = info.to || undefined;
@@ -395,6 +404,8 @@ function checkInvisible(text: string, index: number, cp: number, out: Finding[])
   if (name !== undefined) {
     // A byte order mark is only invisible noise when it is not the first character.
     if (cp === 0xfeff && index === 0) return next;
+    if (cp === 0x200b && scriptAround(text, index, next, ZWSP, UNSPACED)) return next;
+    if (cp === 0x180e && scriptAround(text, index, next, MVS, MONGOLIAN)) return next;
     const isBidi = (cp >= 0x202a && cp <= 0x202e) || (cp >= 0x2066 && cp <= 0x2069);
     message = `${hex(cp)} ${name}${isBidi ? ' can reorder how the text around it is displayed' : ' is invisible'}`;
   } else if (cp >= 0xe0000 && cp <= 0xe007f) {

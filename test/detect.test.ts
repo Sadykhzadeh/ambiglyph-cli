@@ -183,6 +183,16 @@ test('joiners are reported next to Latin, Greek and Cyrillic, not where scripts 
   assert.deepEqual(detect('\u{1F468}\u200D\u{1F469}\u200D\u{1F467} \u200D'), []);
 });
 
+test('zero width spaces between Thai, Lao, Khmer and Burmese words are ordinary', () => {
+  // Thai, Lao, Khmer with a doubled one and a quote after it, Burmese, and
+  // the vowel separator in Mongolian "khara".
+  for (const text of ['\u0E20\u0E32\u0E29\u0E32\u200B\u0E44\u0E17\u0E22', '\u0E9E\u0EB2\u0EAA\u0EB2\u200B\u0EA5\u0EB2\u0EA7', '"\u1797\u17B6\u179F\u17B6\u200B\u200B\u1781\u17D2\u1798\u17C2\u179A\u200B"', '\u1019\u103C\u1014\u103A\u200B\u1019\u102C', '\u182C\u1820\u1837\u180E\u1820']) {
+    assert.deepEqual(detect(text), [], text);
+  }
+  // Elsewhere they are still invisible noise.
+  assert.deepEqual(detect('\u0E44\u0E17\u0E22 pay\u200Bpal x\u180Ey').map(f => [f.text, f.column]), [['ZERO WIDTH SPACE', 8], ['MONGOLIAN VOWEL SEPARATOR', 14]]);
+});
+
 test('marks and controls that show nothing are reported between two letters', () => {
   const inside = ['\u200E', '\u200F', '\u061C', '\u034F', '\u17B4', '\u180B', '\u206A', '\u{1D173}', '\u{1BCA0}', '\uFE0E', '\u{E0100}'];
   for (const c of inside) {
